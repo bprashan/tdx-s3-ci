@@ -1,0 +1,55 @@
+<domain type='kvm'>
+  <name>my-td-guest</name>
+  <memory unit='GiB'>4</memory>
+  <memoryBacking>
+    <source type='anonymous'/>
+    <access mode='private'/>
+  </memoryBacking>
+  <vcpu placement='static'>4</vcpu>
+  <os>
+    <type arch='x86_64' machine='q35'>hvm</type>
+    <loader>/usr/share/edk2/ovmf/OVMF.inteltdx.fd</loader>
+    <boot dev='hd'/>
+  </os>
+  <features>
+    <acpi/>
+    <apic/>
+    <ioapic driver='qemu'/>
+  </features>
+  <clock offset='utc'>
+    <timer name='hpet' present='no'/>
+  </clock>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>destroy</on_crash>
+  <pm>
+    <suspend-to-mem enable='no'/>
+    <suspend-to-disk enable='no'/>
+  </pm>
+  <cpu mode='host-passthrough'>
+    <topology sockets='1' cores='4' threads='1'/>
+  </cpu>
+  <devices>
+    <emulator>/usr/libexec/qemu-kvm</emulator>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2'/>
+      <source file='/var/lib/libvirt/images/rhel-9.3-x86_64-kvm.qcow2'/>
+      <target dev='vda' bus='virtio'/>
+    </disk>
+    <console type='pty'>
+      <target type='virtio' port='1'/>
+    </console>
+    <interface type='network'>
+      <source network='default'/>
+      <model type='virtio'/>
+    </interface>
+    <channel type='unix'>
+      <source mode='bind'/>
+      <target type='virtio' name='org.qemu.guest_agent.0'/>
+    </channel>
+  </devices>
+  <allowReboot value='no'/>
+  <launchSecurity type='tdx'>
+    <policy>0x10000000</policy>
+  </launchSecurity>
+</domain>
