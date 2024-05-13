@@ -28,6 +28,8 @@ def restartNode(node_label){
 
 tdxnode = 'tdx'
 workdir = ''
+tdx_linux_stack_script = 'tdx_canonical_linux_stack.sh'
+isRestartrequired = false
 
 pipeline{
     agent none
@@ -41,14 +43,28 @@ pipeline{
                         workdir = pwd()
                         echo "tdxnode: $tdxnode, workspace: $workspace"
                         checkout scm
-                        sh 'chmod +x tdx_canonical_linux_stack.sh'
-                        sh './tdx_canonical_linux_stack.sh --setuptdx'
+                        def distro = sh(script: ". /etc/os-release; echo \$NAME", returnStdout: true)
+                        echo "system distro: ${distro}"
+                        if (distro.contains('CentOS')){
+                            tdx_linux_stack_script = 'tdx_centos_linux_stack.sh'
+                        }
+                        sh "chmod +x $tdx_linux_stack_script"
+                        def statusCode = sh(script: "./$tdx_linux_stack_script --setuptdx", returnStatus:true)
+                        if (statusCode != 0 ){
+                           if(statusCode == 3){
+                                echo "Build machine will be restarted..."
+                                isRestartrequired = true
+                            }else {
+                                sh "exit 1"
+                            }
+                       }
                     }
                 }
             }
         }
 
         stage('restart tdx host'){
+            when { expression { return isRestartrequired } }
             steps{
                 script{
                     restartNode(tdxnode)
@@ -61,7 +77,7 @@ pipeline{
                 node (tdxnode){
                     script{
                         dir ("${workdir}"){
-                            sh './tdx_canonical_linux_stack.sh --verifytdx'
+                            sh "./$tdx_linux_stack_script --verifytdx"
                         }
                     }
                 }
@@ -73,7 +89,7 @@ pipeline{
                 node (tdxnode){
                     script{
                         dir ("${workdir}"){
-                            sh './tdx_canonical_linux_stack.sh --createtd'
+                            sh "./$tdx_linux_stack_script --createtd"
                         }
                     }
                 }
@@ -85,7 +101,7 @@ pipeline{
                 node (tdxnode){
                     script{
                         dir ("${workdir}"){
-                            sh './tdx_canonical_linux_stack.sh --runtdqemu'
+                            sh "./$tdx_linux_stack_script --runtdqemu"
                         }
                     }
                 }
@@ -97,7 +113,7 @@ pipeline{
                 node (tdxnode){
                     script{
                         dir ("${workdir}"){
-                            sh './tdx_canonical_linux_stack.sh --runtdlibvirt'
+                            sh "./$tdx_linux_stack_script --runtdlibvirt"
                         }
                     }
                 }
