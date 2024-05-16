@@ -10,12 +10,19 @@ QCOW2_IMG="$GUEST_IMG_DIR"/tdx-guest-ubuntu-23.10.qcow2
 TDT_HOST_VERIFY_TEXT="tdx: module initialized"
 TD_GUEST_VERIFY_TEXT="tdx: Guest detected"
 LIBVIRT_CONF=/etc/libvirt/qemu.conf
+RESTART_CHECK_STRING='0 upgraded, 0 newly installed, 0 to remove'
 
 setuptdx(){
         [ -d $TDX_DIR ] && rm -rf $TDX_DIR
-        git clone -b main https://github.com/canonical/tdx.git $TDX_DIR
+        git clone -b mantic-23.10 https://github.com/canonical/tdx.git $TDX_DIR
         cd $TDX_DIR
-        sudo ./setup-tdx-host.sh
+        sudo ./setup-tdx-host.sh | tee setup_tdx.log
+        if grep -viq "${RESTART_CHECK_STRING}" setup_tdx.log; then
+                echo "system restart skipped"
+        else
+                echo "system restart required"
+                exit 3
+        fi
 }
 
 verifytdx(){
@@ -53,6 +60,7 @@ verifytd(){
 cleanup(){
         sudo ./td_virsh_tool.sh -c all
         fuser -k $QCOW2_IMG
+        sleep 20
 }
 
 runtdqemu(){
@@ -60,7 +68,6 @@ runtdqemu(){
         sudo usermod -aG kvm $USER
         cd "$GUEST_TOOLS_DIR"
         cleanup
-        sleep 10
         var=$(TD_IMG="$QCOW2_IMG" ./run_td.sh)
         ret=$?
         if [ $ret -ne 0 ]; then
@@ -78,7 +85,6 @@ runtdlibvirt(){
         sudo systemctl restart libvirtd
         cd "$GUEST_TOOLS_DIR"
         cleanup
-        sleep 10
         var=$(TD_IMG="$QCOW2_IMG" sudo ./td_virsh_tool.sh)
         ret=$?
         if [ $ret -ne 0 ]; then
