@@ -47,6 +47,7 @@ createtd(){
 verifytd(){
         port_num=$(echo $1 | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
         echo "with portnumber : $port_num"
+        rm -rf $HOME/.ssh/known_hosts
         out=$(sshpass -p "123456" ssh -o StrictHostKeyChecking=no -p $port_num root@localhost 'dmesg | grep -i tdx' 2>&1 )
         echo "$out"
         if [[ "$out" =~ "${TD_GUEST_VERIFY_TEXT}" ]]; then
@@ -70,6 +71,7 @@ runtdqemu(){
         cleanup
         var=$(TD_IMG="$QCOW2_IMG" ./run_td.sh)
         ret=$?
+        echo $var
         if [ $ret -ne 0 ]; then
                 exit 1
         fi
@@ -87,6 +89,7 @@ runtdlibvirt(){
         cleanup
         var=$(TD_IMG="$QCOW2_IMG" sudo ./td_virsh_tool.sh)
         ret=$?
+        echo $var
         if [ $ret -ne 0 ]; then
                 exit 1
         fi
@@ -101,6 +104,7 @@ while true; do
                 --createtd ) echo "createtd got selected"; createtd ;shift ;;
                 --runtdqemu ) echo "runtdqemu got selected"; runtdqemu ;shift ;;
                 --runtdlibvirt ) echo "runtdlibvirt got selected"; runtdlibvirt ;shift ;;
+                --smoke ) echo "Verify entire TDX and TD guest configuraiton"; setuptdx; verifytdx; createtd; runtdqemu; runtdlibvirt ;shift ;;
                 -- ) shift; break;;
                 * ) break;;
         esac
