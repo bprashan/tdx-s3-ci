@@ -4,6 +4,7 @@ long=setuptdx,verifytdx,createtd,runtdqemu,runtdlibvirt
 TEMP=$(getopt -l $long -n $script_name -- "$@")
 CUR_DIR=$(pwd)
 TDX_DIR="$CUR_DIR"/tdx
+TDX_TOOLS_DIR="$CUR_DIR"/tdx-tools
 GUEST_TOOLS_DIR="$TDX_DIR"/guest-tools
 GUEST_IMG_DIR="$GUEST_TOOLS_DIR"/image
 QCOW2_IMG="$GUEST_IMG_DIR"/tdx-guest-ubuntu-24.04-generic.qcow2
@@ -52,6 +53,9 @@ createtd(){
         echo $GUEST_IMG_DIR
         cd "$GUEST_IMG_DIR"
         sudo ./create-td-image.sh
+	sudo virt-get-kernel -a $QCOW2_IMG
+	VMLINUZ="$GUEST_IMG_DIR"/"$(ls | grep vmlinuz)"
+	echo "$VMLINUZ"
         cd "$TDX_DIR"
         sudo ./setup-tdx-guest.sh
 }
@@ -115,6 +119,39 @@ runtdlibvirt(){
         verifytd $port_num
 }
 
+setup_pycloudstack(){
+	echo "Installing PyCloudStack required packages in Guest image"
+	sudo LIBGUESTFS_DEBUG=1 LIBGUESTFS_TRACE=1 virt-customize -a $QCOW2_IMG --install qemu-utils,libguestfs-tools,cpuid,python3-virtualenv,python3-libvirt,libguestfs-dev,libvirt-dev,python3-dev,net-tools,qemu-guest-agent,docker.io,cgroupfs-mount --run-command 'cgroupfs-mount' --run-command 'dockerd -D &' --run-command "docker pull redis" --run-command "docker pull nginx"
+	echo "Installing PyCloudStack required packages on host system"
+	sudo apt install -y python3-virtualenv python3-libvirt libguestfs-dev libvirt-dev python3-dev net-tools
+	sudo usermod -aG libvirt root
+	sudo systemctl restart libvirtd
+	echo "Setting up PyCloudStack venv"
+	[ -d $TDX_TOOLS_DIR ] && sudo rm -rf $TDX_TOOLS_DIR
+	git clone https://github.com/anjalirai-intel/tdx-tools.git $TDX_TOOLS_DIR
+	cd $TDX_TOOLS_DIR/tests/
+	source setupenv.sh
+	ssh-keygen -f tests/vm_ssh_test_key -N ""
+	cat >artifacts.yaml <<EOL
+  latest-guest-image-ubuntu:
+   source: file://${QCOW2_IMG}
+  latest-guest-kernel-ubuntu:
+   source: file://${VMLINUZ}
+EOL
+
+	cat artifacts.yaml
+}
+
+run_pycloudstack(){
+	TEST_TYPE=$1
+	cd $TDX_TOOLS_DIR/tests/
+	if [[ $TEST_TYPE == "sanity" ]]; then
+		sudo ./run.sh -g ubuntu -c tests/test_tdvm_lifecycle.py
+	else
+		sudo ./run.sh -g ubuntu -s all
+	fi
+}
+
 while true; do
         case "$1" in
                 --setuptdx ) echo "setuptdx got selected"; setuptdx ;shift ;;
@@ -123,6 +160,7 @@ while true; do
                 --runtdqemu ) echo "runtdqemu got selected"; runtdqemu ;shift ;;
                 --runtdlibvirt ) echo "runtdlibvirt got selected"; runtdlibvirt ;shift ;;
                 --smoke ) echo "Verify entire TDX and TD guest configuraiton"; setuptdx; verifytdx; createtd; runtdqemu; runtdlibvirt ;shift ;;
+		--automatedtests  ) echo "Pycloudstack automated tests got selected"; setuptdx; verifytdx; createtd; setup_pycloudstack; run_pycloudstack $2 ;shift ;;
                 -- ) shift; break;;
                 * ) break;;
         esac
