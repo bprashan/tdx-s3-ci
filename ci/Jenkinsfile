@@ -119,5 +119,16 @@ pipeline{
                 }
             }
         }
+        stage('Run PyCloudStack Automated Test Suite'){
+            steps{
+                node (tdxnode){
+                    script{
+                        dir ("${workdir}"){
+                            sh "./$tdx_linux_stack_script --automatedtests"
+                        }
+                    }
+                }
+            }
+        }
     }
 }
