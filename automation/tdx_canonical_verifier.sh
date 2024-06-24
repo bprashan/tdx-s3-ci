@@ -1,10 +1,11 @@
 #!/bin/bash
-
 CUR_DIR=$(pwd)
+TDX_CONFIG=tdx-config
 TDX_DIR="$CUR_DIR"/tdx_verifier
-BRANCH_NAME=noble-24.04
-ATTESTATION_DIR="$TDX_DIR"/attestation
+source "$CUR_DIR"/tdx_canonical_common
+source "$CUR_DIR"/$TDX_CONFIG
 GUEST_TOOLS_DIR="$TDX_DIR"/guest-tools
+GUEST_IMG_DIR="$GUEST_TOOLS_DIR"/image
 TD_GUEST_VERIFY_TEXT="tdx: Guest detected"
 TDT_HOST_VERIFY_TEXT="tdx: module initialized"
 SERVICE_ACTIVE_STATUS_VERIFY_TEXT="Active: active (running)"
@@ -14,171 +15,214 @@ TD_GUEST_PASSWORD=123456
 TD_GUEST_PORT=10022
 MPA_REGISTRATION_CHECK="INFO: Registration Flow - Registration status indicates registration is completed successfully"
 TRUSTAUTHORITY_API_FILE="config.json"
-
-args=$(getopt -a -o i:h -l td_image_path: -- "$@")
-if [[ $? -gt 0 ]]; then
-  usage
-fi
-
-
-usage(){
->&2 cat << EOF
-Usage: $0
-   [ -i | --td_image_path input ]
-EOF
-exit 1
-}
-
+PASSED=PASSED
+FAILED=FAILED
+VERIFY_TDX_HOST=$FAILED
+CREATE_TD_IMAGE=$FAILED
+RUN_TD_GUEST=$FAILED
+VERIFY_TD_GUEST=$FAILED
+IS_ATTESTATION_SUPPORT=False
+CONFIGURING_ATTESTATION_HOST=$FAILED
+VERIFY_ATTESTATION_HOST=$FAILED
+VERIFY_ATTESTATION_GUEST=$FAILED
+PCCS_DEFAULT_JSON="default.json"
 
 clone_tdx_repo(){
-        echo -e "\n\nCloning TDX git repository with '$BRANCH_NAME' branch.."
+        echo -e "\nCloning TDX git repository with '$BRANCH_NAME' branch ..."
         [ -d $TDX_DIR ] && rm -rf $TDX_DIR
         git clone -b $BRANCH_NAME https://github.com/canonical/tdx.git $TDX_DIR
 }
 
 
 verify_tdx_host(){
-        echo -e "\n\nVerifying whether host is configured with TDX or not.."
+        echo -e "\nVerifying whether host is enabled with TDX ..."
         var="$(sudo dmesg | grep -i tdx)"
-        echo "$var"
         if [[ "$var" =~ "${TDT_HOST_VERIFY_TEXT}" ]]; then
-                        echo -e "TDX is configured on the Host.\n"
+                        echo "TDX is configured on the Host"
+                        VERIFY_TDX_HOST=$PASSED
         else
-                        echo -e "Failure: TDX is not configured on the Host!!\n"
+                        echo "$var"
+                        echo -e "\n\nERROR: TDX is not enabled on the Host"
+                        verification_summary
                         exit 1
         fi
 }
 
-verify_td_guest(){
-        echo -e "\n\nVerifying whether the guest is configured with TDX or not.."
-        echo "TD guest is running on portnumber : $TD_GUEST_PORT"
-        out=$(sshpass -p "$TD_GUEST_PASSWORD" ssh -o StrictHostKeyChecking=no -p $TD_GUEST_PORT root@localhost 'dmesg | grep -i tdx' 2>&1 )
-        echo "$out"
-        if [[ "$out" =~ "${TD_GUEST_VERIFY_TEXT}" ]]; then
-                        echo -e "TDX is configured on guest.\n"
-        else
-                        echo -e "Failure: TDX is not configured on guest!!\n"
-                        exit 1
+create_td_image(){
+        echo -e "\nCreating TD image ..."
+        echo $GUEST_IMG_DIR
+        cd "$GUEST_IMG_DIR"
+        var=$(sudo ./create-td-image.sh)
+        if [ $? -ne 0 ]; then
+                echo "$var"
+                echo -e "\n\n ERROR: TD image creation failed"
+                verification_summary
+                exit 1
         fi
+        CREATE_TD_IMAGE=$PASSED
 }
 
-
-run_verify_td_guest(){
-        echo -e "\nCreating TD guest with QEMU\n"
+run_td_guest(){
+        echo -e "\nCreating TD guest ..."
         sudo usermod -aG kvm $USER
         cd "$GUEST_TOOLS_DIR"
-        var=$(TD_IMG=/home/sdp/bprashan/test/tdx-guest-ubuntu-24.04-generic.qcow2 ./run_td.sh)
-        ret=$?
-        echo -e "$var"
-        if [ $ret -ne 0 ]; then
-                        exit 1
+        var=$(./run_td.sh)
+        if [ $? -ne 0 ]; then
+                echo "$var"
+                echo -e "\n\nERROR: Booting TD guest failed"
+                verification_summary
+                exit 1
+        else
+                echo "TD guest booted successfully"
+                RUN_TD_GUEST=$PASSED
         fi
-        echo -e "\nVerifying TD guest on QEMU\n"
+
+        echo -e "\nVerifying TDX enablement on guest ..."
         TD_GUEST_PORT=$(echo $var | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
-        verify_td_guest
-}
-
-check_production_system() {
-        cd $ATTESTATION_DIR
-        echo -e "\n\nVerifying whether the system supports attestation.."
-        output=$(sudo ./check-production.sh)
-        echo $output
-        if [[ $output =~ "Production" ]]; then
-                echo -e "Attestation is supported.\nThe attestation components are installed \n"
-        sed -i 's/^TDX_SETUP_ATTESTATION=0/TDX_SETUP_ATTESTATION=1/' "$TDX_DIR"/setup-tdx-config
+        echo "TD guest is running on port : $TD_GUEST_PORT"
+        ssh-keygen -f "$HOME/.ssh/known_hosts" -R "[localhost]:$TD_GUEST_PORT"
+        out=$(sshpass -p "$TD_GUEST_PASSWORD" ssh -o StrictHostKeyChecking=no -p $TD_GUEST_PORT root@localhost 'dmesg | grep -i tdx' 2>&1 )
+        if [[ "$out" =~ "${TD_GUEST_VERIFY_TEXT}" ]]; then
+                        echo "TDX is configured on guest"
+                        VERIFY_TD_GUEST=$PASSED
+        elif [[ "$out" =~ "REMOTE HOST IDENTIFICATION HAS CHANGED!" ]]; then
+                echo "$out"
+                echo -e "\nERROR : Remove the host key '[localhost]:$TD_GUEST_PORT' $HOME/.ssh/known_hosts "
+                echo -e "ERROR: TDX is not properly configured on guest"
+                verification_summary
+                exit 1
         else
-                echo -e " Pre-production system. Attestation is not supported on Pre-production systems.\n Attestation verification is skipped\n"
-        exit 0
-        fi
-}
-
-verify_sgx_devices() {
-        echo -e "\n\nVerifying whether SGX is enabled in BIOS.."
-        set -x
-        output=$(ls -l /dev/sgx_*)
-        set +x
-        if [[ $output =~ "/dev/sgx_enclave" && $output =~ "/dev/sgx_provision" && $output =~ "/dev/sgx_vepc" ]]; then
-                        echo -e "SGX enabled and devices present.\n"
-        else
-                        echo -e "Failure: SGX not enabled in BIOS, missing SGX devices. Exiting..!\n"
-                        exit 1
-        fi
-}
-
-verify_service_status(){
-        echo -e "$1"
-        if ! [[ "$1" =~ "$SERVICE_ACTIVE_STATUS_VERIFY_TEXT" ]]; then
-                echo -e "\nFailure: attestation Service is not active. Please verify...\n"
+                echo "$out"
+                echo -e "\nERROR: TDX is not properly configured on guest"
+                verification_summary
                 exit 1
         fi
 }
 
-verify_attestation_services() {
-        echo -e "\n\nVerifying Attestation services on the host...\n"
-        status=$(sudo systemctl status qgsd)
-        verify_service_status "$status"
+configure_attestation_host() {
+        #Configure the PCCS service
+        echo -e "\nConfiguring PCCS service ..."
+        cd $CUR_DIR
+        sudo cp -f $PCCS_DEFAULT_JSON /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
+        sudo sed -i 's/"ApiKey" :.*/"ApiKey" : '\"$ApiKey\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
+        sudo sed -i 's/"UserTokenHash" :.*/"UserTokenHash" : '\"$UserTokenHash\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
+        sudo sed -i 's/"AdminTokenHash" :.*/"AdminTokenHash" : '\"$AdminTokenHash\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
+        sudo systemctl restart pccs
 
-        status=$(sudo systemctl status pccs)
-        verify_service_status "$status"
-
+        #Verify MPA registration log
+        echo -e "\nVerifying MPA registration ..."
         sudo rm -rf /var/log/mpa_registration.log
         sudo systemctl restart mpa_registration_tool
         sleep 5
         log=$(cat /var/log/mpa_registration.log)
-        echo "$log"
         if [[ "$log" =~ "$MPA_REGISTRATION_CHECK" ]]; then
-                echo "MPA registration is successful"
+                echo -e "\nMPA registration is successful ..."
+                CONFIGURING_ATTESTATION_HOST=$PASSED
         else
-                echo "ERROR : MPA registration failure"
+                echo "$log"
+                echo -e "\nERROR : MPA registration failed"
+                echo "Boot into the BIOS, go to Socket Configuration > Processor Configuration > Software Guard Extension (SGX), and set"
+                echo "SGX Factory Reset to Enabled"
+                echo "SGX Auto MP Registration to Enabled"
+                verification_summary
                 exit 1
         fi
+}
 
-        status=$(sudo systemctl status mpa_registration_tool)
-        echo -e "$status"
-        if ! [[ "$status" =~ "$MPA_SERVICE_CHECK" ]]; then
-                echo "\nFailure: MPA Service is not enabled. Please verify...\n"
+verify_service_status(){
+        if ! [[ "$1" =~ "$SERVICE_ACTIVE_STATUS_VERIFY_TEXT" ]]; then
+                echo "$1"
+                echo -e "\nERROR: $2 Service is not active. Please verify ..."
+                verification_summary
                 exit 1
         fi
 }
 
 verify_attestation_host(){
-        verify_sgx_devices
-        verify_attestation_services
+        echo -e "\nVerifying whether SGX is enabled in BIOS ..."
+        set -x
+        output=$(ls -l /dev/sgx_*)
+        set +x
+        if [[ $output =~ "/dev/sgx_enclave" && $output =~ "/dev/sgx_provision" && $output =~ "/dev/sgx_vepc" ]]; then
+                echo "SGX enabled and devices are available"
+        else
+                echo -e "\nERROR: SGX not enabled in BIOS, missing SGX devices."
+                verification_summary
+                exit 1
+        fi
+
+        echo -e "\nVerifying Attestation services on the host ..."
+        status=$(sudo systemctl status qgsd)
+        verify_service_status "$status" "qgsd"
+
+        status=$(sudo systemctl status pccs)
+        verify_service_status "$status" "pccs"
+
+        status=$(sudo systemctl status mpa_registration_tool)
+        echo "$status"
+        if ! [[ "$status" =~ "$MPA_SERVICE_CHECK" ]]; then
+                echo "$status"
+                echo "\nERROR: MPA registration service is not enabled. Please verify ..."
+                verification_summary
+                exit 1
+        fi
+        VERIFY_ATTESTATION_HOST=$PASSED
 }
 
 verify_attestation_guest(){
-        echo -e "\n\nVerifying Attestation services on the guest...\n"
+        echo -e "\nVerifying Attestation services on the guest ..."
         cd "$CUR_DIR"
-        sshpass -p "$TD_GUEST_PASSWORD" scp -vv -P "$TD_GUEST_PORT" -r "$TDX_DIR" "$VERIFY_ATTESTATION_SCRIPT" "$TRUSTAUTHORITY_API_FILE" root@localhost:/tmp/ 2>&1 || (echo "scp command failure" && exit 1)
-        sshpass -p "$TD_GUEST_PASSWORD" ssh -T -o StrictHostKeyChecking=no -p "$TD_GUEST_PORT" root@localhost "cd /tmp; ./$VERIFY_ATTESTATION_SCRIPT" 2>&1 /dev/tty || (echo "ERROR: attestation verification error on td guest" && exit 1)
+        output=0
+        sshpass -p "$TD_GUEST_PASSWORD" rsync -avz --exclude={'*.img','*.qcow2'} -e "ssh -p $TD_GUEST_PORT" "$TDX_DIR" "$VERIFY_ATTESTATION_SCRIPT" "$TRUSTAUTHORITY_API_FILE" "$TDX_CONFIG" root@localhost:/tmp/ 2>&1 || ( echo "ERROR: tdx canonical files are not copied to the TD guest"; verification_summary ; output=1 )
+        [ $output -ne 0 ] && exit 1
+
+        sshpass -p "$TD_GUEST_PASSWORD" ssh -T -o StrictHostKeyChecking=no -p "$TD_GUEST_PORT" root@localhost "cd /tmp; ./$VERIFY_ATTESTATION_SCRIPT" 2>&1 /dev/tty || ( echo "ERROR: attestation verification error on td guest"; verification_summary ; output=1 )
+        if [ $output -eq 0 ]; then
+                VERIFY_ATTESTATION_GUEST=$PASSED
+                exit 1
+        fi
+
 }
 
-args=$(getopt -a -o i:h -l td_image_path: -- "$@")
-if [[ $? -gt 0 ]]; then
-  usage
+verification_summary(){
+        echo -e "\n---------------------------------VERIFICATION STATUS----------------------------------"
+        echo "|------------------------------------------------------------------------------------|"
+        echo "|                 Steps                        |                Status               |"
+        echo "|----------------------------------------------|-------------------------------------|"
+        echo "| TDX HOST Enabled check                       |                "$VERIFY_TDX_HOST"               |"
+        echo "| TD Image Creation                            |                "$CREATE_TD_IMAGE"               |"
+        echo "| Boot TD Guest                                |                "$RUN_TD_GUEST"               |"
+        echo "| Verify TD Guest                              |                "$VERIFY_TD_GUEST"               |"
+        echo "| Is Attestation Support                       |                "$IS_ATTESTATION_SUPPORT"                 |"
+        echo "| Configure Attestation on Host                |                "$CONFIGURING_ATTESTATION_HOST"               |"
+        echo "| Attestation Verification on Host             |                "$VERIFY_ATTESTATION_HOST"               |"
+        echo "| Attestation using Intel Tiber Trust Services |                "$VERIFY_ATTESTATION_GUEST"               |"
+        echo "|------------------------------------------------------------------------------------|"
+}
+
+sudo apt install --yes sshpass &> /dev/null
+
+if [[ -z "$ApiKey" || -z "$UserTokenHash" || -z "$AdminTokenHash" ]]; then
+        echo "ERROR : PCCS config values are missing in tdx-config file"
+        exit 1
 fi
 
-eval set -- "$args"
-while :
-do
-        case $1 in
-                -i | --td_image_path) TD_IMG=$2 ; break ;;
-                -h) usage; shift ;;
-                --) shift; break ;;
-                *) >&2 echo Unsupported option: $1
-                        usage ;;
-        esac
-done
-
-if [[ -z $TD_IMG ]]; then
-        echo -e "ERROR: -i or --td_image_path is mandatory argument.";
-        exit 1;
-fi
-
-apt install --yes sshpass &> /dev/null
 clone_tdx_repo
 verify_tdx_host
-check_production_system
-verify_attestation_host
-run_verify_td_guest
-verify_attestation_guest
+create_td_image
+run_td_guest
+check_attestation_support
+
+if [ $is_prod_sys -eq 0 ]; then
+        IS_ATTESTATION_SUPPORT=True
+        configure_attestation_host
+        verify_attestation_host
+        verify_attestation_guest
+        verification_summary
+else
+        echo "========================================================================================================================="
+        echo "The host OS setup (TDX) has been done successfully. Now, please enable Intel TDX in the BIOS."
+        echo "NOTE : This is a Pre-production system. Intel® SGX Data Center Attestation Primitives (Intel® SGX DCAP) are not installed"
+        echo "========================================================================================================================="
+        verification_summary
+fi

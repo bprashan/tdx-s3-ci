@@ -1,0 +1,20 @@
+CUR_DIR=$(pwd)
+GUEST_TOOLS_DIR="$TDX_DIR"/guest-tools
+GUEST_IMG_DIR="$GUEST_TOOLS_DIR"/image
+ATTESTATION_DIR="$TDX_DIR"/attestation
+BRANCH_NAME=${BRANCH_NAME:-2.0}
+is_prod_sys=1
+
+
+check_attestation_support() {
+        cd $ATTESTATION_DIR
+        echo -e "\nVerifying if the system supports attestation ..."
+        output=$(sudo ./check-production.sh)
+        if [[ $output =~ "Production" ]]; then
+                echo "Intel® SGX Data Center Attestation Primitives (Intel® SGX DCAP) will be installed on the Host ..."
+                is_prod_sys=0
+                sed -i 's/^TDX_SETUP_ATTESTATION=0/TDX_SETUP_ATTESTATION=1/' "$TDX_DIR"/setup-tdx-config
+        else
+                echo "This is a Pre-production system and hence Intel® SGX Data Center Attestation Primitives (Intel® SGX DCAP) will not be installed on the Host ..."
+        fi
+}

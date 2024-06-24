@@ -5,43 +5,55 @@ TD_REPORT_TEXT="Wrote TD Report to report.dat"
 TRUST_SERVICE_PATH=/usr/share/doc/libtdx-attest-dev/examples/
 TDX_DIR="$CUR_DIR"/tdx_verifier
 ATTESTATION_DIR="$TDX_DIR"/attestation
+source "$CUR_DIR"/tdx-config
 
-setup_trust_service(){
+
+
+setup_intel_tiber_trust_service(){
         echo "Installing attestation packages on TD guest and verifying it ..."
+        if ! [[ -z "$http_proxy" || -z "$https_proxy" ]]; then
+                echo -e "Acquire::http::proxy \"$http_proxy\";\nAcquire::https::proxy \"$https_proxy\";" > /etc/apt/apt.conf.d/tdx_proxy
+                export http_proxy="$http_proxy"
+                export https_proxy="$https_proxy"
+        fi
         cd $ATTESTATION_DIR
-        sudo ./setup-attestation-guest.sh
+        ./setup-attestation-guest.sh
         trustauthority-cli version
         if ! [[ $? == 0 ]]; then
-                echo "ERROR: trustauthority service is not installed"
+                echo -e "\nERROR: trustauthority service is not installed"
                 exit 1
         fi
 }
 
-verify_trust_service(){
-        echo "Checking whether Intel Tiber Trust Services is running ..."
+
+
+verify_intel_tiber_trust_service(){
+        echo -e "\nChecking whether Intel Tiber Trust Services is running ..."
         cd $TRUST_SERVICE_PATH
         var=$(./test_tdx_attest)
-        echo "$var"
         if [[ ("$var" =~ "$TD_QUOTE_TEXT") && ("$var" =~ "$TD_REPORT_TEXT") ]]; then
-                echo "Intel Tiber Trust Services running"
+                echo -e "\nIntel Tiber Trust Services running"
         else
-                echo "ERROR: Intel Tiber Trust Services not running"
+                echo "$var"
+                echo -e "\nERROR: Intel Tiber Trust Services not running"
                 exit 1
         fi
 }
 
-attest_trust_service(){
-        echo "Verify attest with Intel Tiber Trust Service ..."
+attest_intel_tiber_trust_service(){
+        echo -e "\nVerify attest with Intel Tiber Trust Service ..."
         cd $CUR_DIR
-        trustauthority-cli token -c config.json
+        var=$(trustauthority-cli token -c config.json)
         if ! [[ $? == 0 ]]; then
-                echo "ERROR: Attestation with Intel Tiber Trust Service got failed!"
+                echo "$var"
+                echo -e "\nERROR: Attestation with Intel Tiber Trust Service got failed!"
                 exit 1
         else
-                echo "Attestation with Intel Tiber Trust Service is successful!"
+                echo -e "\nAttestation with Intel Tiber Trust Service is successful!"
         fi
 }
 
-setup_trust_service
-verify_trust_service
-attest_trust_service
+setup_intel_tiber_trust_service
+verify_intel_tiber_trust_service
+attest_intel_tiber_trust_service
+
