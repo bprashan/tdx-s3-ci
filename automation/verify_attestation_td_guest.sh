@@ -7,8 +7,6 @@ TDX_DIR="$CUR_DIR"/tdx_verifier
 ATTESTATION_DIR="$TDX_DIR"/attestation
 source "$CUR_DIR"/tdx-config
 
-
-
 setup_intel_tiber_trust_service(){
         echo "Installing attestation packages on TD guest and verifying it ..."
         if ! [[ -z "$http_proxy" || -z "$https_proxy" ]]; then
@@ -21,7 +19,7 @@ setup_intel_tiber_trust_service(){
         trustauthority-cli version
         if ! [[ $? == 0 ]]; then
                 echo -e "\nERROR: trustauthority service is not installed"
-                exit 1
+                return -1
         fi
 }
 
@@ -36,7 +34,7 @@ verify_intel_tiber_trust_service(){
         else
                 echo "$var"
                 echo -e "\nERROR: Intel Tiber Trust Services not running"
-                exit 1
+                return -1
         fi
 }
 
@@ -47,7 +45,7 @@ attest_intel_tiber_trust_service(){
         if ! [[ $? == 0 ]]; then
                 echo "$var"
                 echo -e "\nERROR: Attestation with Intel Tiber Trust Service got failed!"
-                exit 1
+                return -1
         else
                 echo -e "\nAttestation with Intel Tiber Trust Service is successful!"
         fi
