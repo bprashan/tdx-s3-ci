@@ -66,7 +66,7 @@ run_td_guest() {
         if [ $? -ne 0 ]; then
                 echo "$var"
                 echo -e "\n\nERROR: Booting TD guest failed"
-		return -1
+                return -1
         else
                 echo "TD guest booted successfully"
                 RUN_TD_GUEST="PASSED"
@@ -75,7 +75,9 @@ run_td_guest() {
         echo -e "\nVerifying TDX enablement on guest ..."
         TD_GUEST_PORT=$(echo $var | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
         echo "TD guest is running on port : $TD_GUEST_PORT"
-        ssh-keygen -f "$HOME/.ssh/known_hosts" -R "[localhost]:$TD_GUEST_PORT"
+        if [ -f /home/sdp/.ssh/known_hosts ]; then
+                ssh-keygen -f "$HOME/.ssh/known_hosts" -R "[localhost]:$TD_GUEST_PORT"
+        fi
         out=$(sshpass -p "$TD_GUEST_PASSWORD" ssh -o StrictHostKeyChecking=no -p $TD_GUEST_PORT root@localhost 'dmesg | grep -i tdx' 2>&1 )
         if [[ "$out" =~ "${TD_GUEST_VERIFY_TEXT}" ]]; then
                 echo "TDX is configured on guest"
@@ -130,14 +132,14 @@ configure_attestation_host() {
                 echo "SGX Factory Reset to Enabled"
                 echo "SGX Auto MP Registration to Enabled"
                 return -1
-	fi
+        fi
 }
 
 verify_service_status() {
         if ! [[ "$1" =~ "$SERVICE_ACTIVE_STATUS_VERIFY_TEXT" ]]; then
                 echo "$1"
                 echo -e "\nERROR: $2 Service is not active. Please verify ..."
-                return -1
+                finally
         fi
 }
 
@@ -167,6 +169,7 @@ verify_attestation_host() {
                 return -1
         fi
         VERIFY_ATTESTATION_HOST="PASSED"
+
 }
 
 verify_attestation_guest() {
@@ -174,14 +177,18 @@ verify_attestation_guest() {
         cd "$CUR_DIR"
         output=0
 
-        sed -i 's/"trustauthority_api_key".*/"trustauthority_api_key":"$trustauthority_api_key"/' $TRUSTAUTHORITY_API_FILE
-        sshpass -p "$TD_GUEST_PASSWORD" rsync -avz --exclude={'*.img','*.qcow2'} -e "ssh -p $TD_GUEST_PORT" "$TDX_DIR" "$VERIFY_ATTESTATION_SCRIPT" "$TRUSTAUTHORITY_API_FILE" "$TDX_CONFIG" root@localhost:/tmp/ 2>&1 || ( echo "ERROR: tdx canonical files are not copied to the TD guest"; output=1 )
-        [ $output -ne 0 ] && return -1
+        sed -i 's/"trustauthority_api_key".*/"trustauthority_api_key":'\"$trustauthority_api_key\"'/' $TRUSTAUTHORITY_API_FILE
+        sshpass -p "$TD_GUEST_PASSWORD" rsync -avz --exclude={'*.img','*.qcow2'} -e "ssh -p $TD_GUEST_PORT" "$TDX_DIR" "$VERIFY_ATTESTATION_SCRIPT" "$TRUSTAUTHORITY_API_FILE" "$TDX_CONFIG" root@localhost:/tmp/ 2>&1 || output=1
+        if [ $output -ne 0 ]; then
+                echo "ERROR: tdx canonical files are not copied to the TD guest"
+                return -1
+        fi
 
-        sshpass -p "$TD_GUEST_PASSWORD" ssh -T -o StrictHostKeyChecking=no -p "$TD_GUEST_PORT" root@localhost "cd /tmp; ./$VERIFY_ATTESTATION_SCRIPT" 2>&1 /dev/tty || ( echo "ERROR: attestation verification error on td guest"; output=1 )
+        sshpass -p "$TD_GUEST_PASSWORD" ssh -T -o StrictHostKeyChecking=no -p "$TD_GUEST_PORT" root@localhost "cd /tmp; ./$VERIFY_ATTESTATION_SCRIPT" 2>&1 /dev/tty || output=1
         if [ $output -eq 0 ]; then
                 VERIFY_ATTESTATION_GUEST="PASSED"
         else
+                echo "ERROR: attestation verification error on td guest"
                 return -1
         fi
 

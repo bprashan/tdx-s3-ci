@@ -19,7 +19,7 @@ setup_intel_tiber_trust_service(){
         trustauthority-cli version
         if ! [[ $? == 0 ]]; then
                 echo -e "\nERROR: trustauthority service is not installed"
-                return -1
+                exit 1
         fi
 }
 
@@ -34,7 +34,7 @@ verify_intel_tiber_trust_service(){
         else
                 echo "$var"
                 echo -e "\nERROR: Intel Tiber Trust Services not running"
-                return -1
+                exit 1
         fi
 }
 
@@ -45,7 +45,7 @@ attest_intel_tiber_trust_service(){
         if ! [[ $? == 0 ]]; then
                 echo "$var"
                 echo -e "\nERROR: Attestation with Intel Tiber Trust Service got failed!"
-                return -1
+                exit 1
         else
                 echo -e "\nAttestation with Intel Tiber Trust Service is successful!"
         fi
@@ -54,4 +54,3 @@ attest_intel_tiber_trust_service(){
 setup_intel_tiber_trust_service
 verify_intel_tiber_trust_service
 attest_intel_tiber_trust_service
-
