@@ -15,13 +15,13 @@ For attestation to work, you need Production hardware. The script will internall
 
 ### 3.2 Pre-requisites
 1. Update the proxy settings in `tdx-config`, in case the system is behind proxy.
-2. If you are running on a production system and wish to setup remote attestation then you would need a subscription key for the Intel PCS.
+2. If you are running on a production system and wish to setup remote attestation then you would need a subscription key for the Intel PCS. Add the PCS API key to the `tdx-config` file.
    + If you did not request such a subscription key before, [subscribe](https://api.portal.trustedservices.intel.com/products#product=liv-intel-software-guard-extensions-provisioning-certification-service) to Intel PCS, which requires to log in (or create an account). Two subscription keys are generated (for key rotation) and both can be used for the following step.
    + If you did request such a subscription key before, [retrieve](https://api.portal.trustedservices.intel.com/manage-subscriptions) one of your keys, which requires to log in. You have two subscription keys (for key rotation) and both can be used.
 3. Along with the API key you would also need to provide the following:
    + Sha512 hash of the user token for the PCCS client user to register a platform. For example, PCK Cert ID retrieval tool will use the user token to send platform information to PCCS.
    + Sha512 hash of the administrator token for the PCCS administrator to perform a manual refresh of cached artifacts.
-4. If you want to perform attestation using Intel Tiber Trust Services then you would need to trustauthority_api_key, which can be obtained by following this [tutorial](https://docs.trustauthority.intel.com/main/articles/tutorial-api-key.html?tabs=attestation-api-key-portal%2Cattestation-sgx-client).
+4. If you want to perform attestation using Intel Tiber Trust Services then you would need to trustauthority_api_key, which can be obtained by following this [tutorial](https://docs.trustauthority.intel.com/main/articles/tutorial-api-key.html?tabs=attestation-api-key-portal%2Cattestation-sgx-client). This should also be updated to the `tdx-config` file.
 
 ### 3.3 Installation
 1. Download this repository by cloning the repository (at the appropriate main branch). and execute the setup script.
