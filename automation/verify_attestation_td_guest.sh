@@ -40,6 +40,11 @@ verify_intel_tiber_trust_service(){
 
 attest_intel_tiber_trust_service(){
         echo -e "\nVerify attest with Intel Tiber Trust Service ..."
+        if [[ -z "$trustauthority_api_key" ]]; then
+                echo "ERROR : Intel Tiber Trust Service API key is missing in tdx-config file"
+                echo "Attestation with Intel Tiber Trust Service cannot be verified"
+                exit 1
+        fi
         cd $CUR_DIR
         var=$(trustauthority-cli token -c config.json)
         if ! [[ $? == 0 ]]; then

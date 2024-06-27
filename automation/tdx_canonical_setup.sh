@@ -2,6 +2,7 @@
 
 CUR_DIR=$(pwd)
 TDX_DIR="$CUR_DIR"/tdx_setup
+BRANCH_NAME=${BRANCH_NAME:-2.0}
 
 clone_tdx_repo() {
         echo -e "\n\nCloning TDX git repository with '$BRANCH_NAME' branch.."
@@ -12,7 +13,8 @@ clone_tdx_repo() {
 setup_tdx_host() {
         cd $TDX_DIR
         echo -e "\nSetting up the host for TDX..."
-        sudo -E TDX_SETUP_ATTESTATION=1  ./setup-tdx-host.sh
+        sed -i 's/^TDX_SETUP_ATTESTATION=0/TDX_SETUP_ATTESTATION=1/' "$TDX_DIR"/setup-tdx-config
+        sudo -E ./setup-tdx-host.sh
 }
 
 clone_tdx_repo

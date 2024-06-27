@@ -7,9 +7,6 @@ TDX_DIR="$CUR_DIR"/tdx_verifier
 source "$CUR_DIR"/$TDX_CONFIG
 GUEST_TOOLS_DIR=$TDX_DIR/guest-tools/
 GUEST_IMG_DIR="$GUEST_TOOLS_DIR"/image
-TD_GUEST_VERIFY_TEXT="tdx: Guest detected"
-TDT_HOST_VERIFY_TEXT="tdx: module initialized"
-SERVICE_ACTIVE_STATUS_VERIFY_TEXT="Active: active (running)"
 MPA_SERVICE_CHECK="mpa_registration_tool.service; enabled; preset: enabled"
 VERIFY_ATTESTATION_SCRIPT="verify_attestation_td_guest.sh"
 TD_GUEST_PASSWORD=123456
@@ -36,7 +33,7 @@ clone_tdx_repo() {
 verify_tdx_host() {
         echo -e "\nVerifying whether host is enabled with TDX ..."
         var="$(sudo dmesg | grep -i tdx)"
-        if [[ "$var" =~ "${TDT_HOST_VERIFY_TEXT}" ]]; then
+        if [[ "$var" =~ "tdx: module initialized" ]]; then
                 echo "TDX is configured on the Host"
                 VERIFY_TDX_HOST="PASSED"
         else
@@ -76,10 +73,10 @@ run_td_guest() {
         TD_GUEST_PORT=$(echo $var | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
         echo "TD guest is running on port : $TD_GUEST_PORT"
         if [ -f /home/sdp/.ssh/known_hosts ]; then
-                ssh-keygen -f "$HOME/.ssh/known_hosts" -R "[localhost]:$TD_GUEST_PORT"
+                sudo ssh-keygen -f "$HOME/.ssh/known_hosts" -R "[localhost]:$TD_GUEST_PORT"
         fi
         out=$(sshpass -p "$TD_GUEST_PASSWORD" ssh -o StrictHostKeyChecking=no -p $TD_GUEST_PORT root@localhost 'dmesg | grep -i tdx' 2>&1 )
-        if [[ "$out" =~ "${TD_GUEST_VERIFY_TEXT}" ]]; then
+        if [[ "$out" =~ "tdx: Guest detected" ]]; then
                 echo "TDX is configured on guest"
                 VERIFY_TD_GUEST="PASSED"
         elif [[ "$out" =~ "REMOTE HOST IDENTIFICATION HAS CHANGED!" ]]; then
@@ -110,7 +107,15 @@ configure_attestation_host() {
 
         # Configure the PCCS service
         echo -e "\nConfiguring PCCS service ..."
+        if [[ -z "$ApiKey" || -z "$UserPassword" || -z "$AdminPassword" ]]; then
+                echo "ERROR : PCCS config values are missing in tdx-config file"
+                echo "Attestation services cannot be configured on Host"
+                return -1
+        fi
+
         cd $CUR_DIR
+        UserTokenHash=$(echo -n "$UserPassword" | sha512sum | cut -d ' ' -f 1)
+        AdminTokenHash=$(echo -n "$AdminPassword" | sha512sum | cut -d ' ' -f 1)
         sudo sed -i 's/"ApiKey" :.*/"ApiKey" : '\"$ApiKey\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
         sudo sed -i 's/"UserTokenHash" :.*/"UserTokenHash" : '\"$UserTokenHash\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
         sudo sed -i 's/"AdminTokenHash" :.*/"AdminTokenHash" : '\"$AdminTokenHash\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
@@ -136,7 +141,7 @@ configure_attestation_host() {
 }
 
 verify_service_status() {
-        if ! [[ "$1" =~ "$SERVICE_ACTIVE_STATUS_VERIFY_TEXT" ]]; then
+        if ! [[ "$1" =~ "Active: active (running)" ]]; then
                 echo "$1"
                 echo -e "\nERROR: $2 Service is not active. Please verify ..."
                 finally
@@ -211,11 +216,6 @@ verification_summary() {
 }
 
 sudo apt install --yes sshpass &> /dev/null
-
-if [[ -z "$ApiKey" || -z "$UserTokenHash" || -z "$AdminTokenHash"  || -z "$trustauthority_api_key" ]]; then
-        echo "ERROR : PCCS config values are missing in tdx-config file"
-        return -1
-fi
 
 clone_tdx_repo
 verify_tdx_host
