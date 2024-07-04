@@ -46,7 +46,7 @@ verify_tdx_host() {
 create_td_image() {
         echo -e "\nCreating TD image ..."
         cd "$GUEST_IMG_DIR"
-        var=$(sudo ./create-td-image.sh)
+        var=$(sudo -E ./create-td-image.sh)
         if [ $? -ne 0 ]; then
                 echo "$var"
                 echo -e "\n\n ERROR: TD image creation failed"
@@ -72,8 +72,9 @@ run_td_guest() {
         echo -e "\nVerifying TDX enablement on guest ..."
         TD_GUEST_PORT=$(echo $var | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
         echo "TD guest is running on port : $TD_GUEST_PORT"
-        if [ -f /home/sdp/.ssh/known_hosts ]; then
-                sudo ssh-keygen -f "$HOME/.ssh/known_hosts" -R "[localhost]:$TD_GUEST_PORT"
+	home_dir=$(cat /etc/passwd | grep $USER | cut -d ":" -f 6)
+        if [ -f "$home_dir/.ssh/known_hosts" ]; then
+		sudo ssh-keygen -f "$home_dir/.ssh/known_hosts" -R "[localhost]:$TD_GUEST_PORT"
         fi
         out=$(sshpass -p "$TD_GUEST_PASSWORD" ssh -o StrictHostKeyChecking=no -p $TD_GUEST_PORT root@localhost 'dmesg | grep -i tdx' 2>&1 )
         if [[ "$out" =~ "tdx: Guest detected" ]]; then
@@ -81,7 +82,7 @@ run_td_guest() {
                 VERIFY_TD_GUEST="PASSED"
         elif [[ "$out" =~ "REMOTE HOST IDENTIFICATION HAS CHANGED!" ]]; then
                 echo "$out"
-                echo -e "\nERROR : Remove the host key '[localhost]:$TD_GUEST_PORT' $HOME/.ssh/known_hosts "
+                echo -e "\nERROR : Remove the host key '[localhost]:$TD_GUEST_PORT' $home_dir/.ssh/known_hosts "
                 echo -e "ERROR: TDX is not properly configured on guest"
                 return -1
         else
@@ -116,9 +117,9 @@ configure_attestation_host() {
         cd $CUR_DIR
         UserTokenHash=$(echo -n "$UserPassword" | sha512sum | cut -d ' ' -f 1)
         AdminTokenHash=$(echo -n "$AdminPassword" | sha512sum | cut -d ' ' -f 1)
-        sudo sed -i 's/"ApiKey" :.*/"ApiKey" : '\"$ApiKey\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
-        sudo sed -i 's/"UserTokenHash" :.*/"UserTokenHash" : '\"$UserTokenHash\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
-        sudo sed -i 's/"AdminTokenHash" :.*/"AdminTokenHash" : '\"$AdminTokenHash\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
+        sudo sed -i 's/"ApiKey".*/"ApiKey" : '\"$ApiKey\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
+        sudo sed -i 's/"UserTokenHash".*/"UserTokenHash" : '\"$UserTokenHash\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
+        sudo sed -i 's/"AdminTokenHash".*/"AdminTokenHash" : '\"$AdminTokenHash\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
         sudo systemctl restart pccs
 
         # Verify MPA registration log
