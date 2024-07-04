@@ -72,9 +72,9 @@ run_td_guest() {
         echo -e "\nVerifying TDX enablement on guest ..."
         TD_GUEST_PORT=$(echo $var | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
         echo "TD guest is running on port : $TD_GUEST_PORT"
-	home_dir=$(cat /etc/passwd | grep $USER | cut -d ":" -f 6)
+        home_dir=$(cat /etc/passwd | grep $USER | cut -d ":" -f 6)
         if [ -f "$home_dir/.ssh/known_hosts" ]; then
-		sudo ssh-keygen -f "$home_dir/.ssh/known_hosts" -R "[localhost]:$TD_GUEST_PORT"
+                sudo ssh-keygen -f "$home_dir/.ssh/known_hosts" -R "[localhost]:$TD_GUEST_PORT"
         fi
         out=$(sshpass -p "$TD_GUEST_PASSWORD" ssh -o StrictHostKeyChecking=no -p $TD_GUEST_PORT root@localhost 'dmesg | grep -i tdx' 2>&1 )
         if [[ "$out" =~ "tdx: Guest detected" ]]; then
