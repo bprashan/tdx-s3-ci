@@ -27,6 +27,7 @@ clone_tdx_repo() {
         echo -e "\nCloning TDX git repository with '$BRANCH_NAME' branch ..."
         [ -d $TDX_DIR ] && rm -rf $TDX_DIR
         git clone -b $BRANCH_NAME https://github.com/canonical/tdx.git $TDX_DIR
+        sed -i 's/tdx-release/tdx/' "$TDX_DIR"/attestation/setup-attestation-guest.sh
 }
 
 
