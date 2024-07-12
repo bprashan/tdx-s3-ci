@@ -31,7 +31,7 @@ User need to provide below details in `tdx-config` file to check entire TDX func
 
    ```
    cd TDX-ITA-IDC-Beta/scripts
-   # update `tdx_config` file
+   # update `tdx-config` file
    # sudo -E ./tdx_canonical_setup.sh
    sudo ./tdx_canonical_setup.sh
    ```
@@ -71,7 +71,7 @@ User need to provide below details in `tdx-config` file to check entire TDX func
 
    ```
    cd TDX-ITA-IDC-Beta/scripts
-   # sudo -E ./tdx_canonical_setup.sh
+   # sudo -E ./tdx_canonical_verifier.sh
    sudo ./tdx_canonical_verifier.sh
    ```
 
