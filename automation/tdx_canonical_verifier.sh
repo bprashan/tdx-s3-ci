@@ -14,7 +14,11 @@ TD_GUEST_PORT=10022
 MPA_REGISTRATION_CHECK="INFO: Registration Flow - Registration status indicates registration is completed successfully"
 TRUSTAUTHORITY_API_FILE="config.json"
 PCCS_DEFAULT_JSON="default.json"
-
+if [[ -z "$SUDO_USER" ]]; then
+	LOGIN_USER=`whoami`
+else
+	LOGIN_USER=$SUDO_USER
+fi
 
 finally() {
         verification_summary
@@ -32,7 +36,7 @@ clone_tdx_repo() {
 
 verify_tdx_host() {
         echo -e "\nVerifying whether host is enabled with TDX ..."
-        var="$(sudo dmesg | grep -i tdx)"
+        var="$(dmesg | grep -i tdx)"
         if [[ "$var" =~ "tdx: module initialized" ]]; then
                 echo "TDX is configured on the Host"
                 VERIFY_TDX_HOST="PASSED"
@@ -46,18 +50,21 @@ verify_tdx_host() {
 create_td_image() {
         echo -e "\nCreating TD image ..."
         cd "$GUEST_IMG_DIR"
-        var=$(sudo -E ./create-td-image.sh)
+        var=$(./create-td-image.sh)
         if [ $? -ne 0 ]; then
                 echo "$var"
                 echo -e "\n\n ERROR: TD image creation failed"
                 return -1
         fi
+	mkdir -p /home/$LOGIN_USER/td_image
+	cp -f tdx-guest-ubuntu-24.04-generic.qcow2  /home/$LOGIN_USER/td_image
+	chown -R $LOGIN_USER:$LOGIN_USER /home/$LOGIN_USER/td_image
+	cp $TDX_DIR/../config.json /home/$LOGIN_USER/td_image
         CREATE_TD_IMAGE="PASSED"
 }
 
 run_td_guest() {
         echo -e "\nBoot TD guest ..."
-        sudo usermod -aG kvm $USER
         cd "$GUEST_TOOLS_DIR"
         var=$(./run_td.sh)
         if [ $? -ne 0 ]; then
@@ -74,7 +81,7 @@ run_td_guest() {
         echo "TD guest is running on port : $TD_GUEST_PORT"
         home_dir=$(cat /etc/passwd | grep $USER | cut -d ":" -f 6)
         if [ -f "$home_dir/.ssh/known_hosts" ]; then
-                sudo ssh-keygen -f "$home_dir/.ssh/known_hosts" -R "[localhost]:$TD_GUEST_PORT"
+                ssh-keygen -f "$home_dir/.ssh/known_hosts" -R "[localhost]:$TD_GUEST_PORT"
         fi
         out=$(sshpass -p "$TD_GUEST_PASSWORD" ssh -o StrictHostKeyChecking=no -p $TD_GUEST_PORT root@localhost 'dmesg | grep -i tdx' 2>&1 )
         if [[ "$out" =~ "tdx: Guest detected" ]]; then
@@ -95,7 +102,7 @@ run_td_guest() {
 check_attestation_support() {
         cd "$TDX_DIR"/attestation
         echo -e "\nVerifying if the system supports attestation ..."
-        output=$(sudo ./check-production.sh)
+        output=$(./check-production.sh)
         if [[ $output =~ "Production" ]]; then
                 echo "Intel® SGX Data Center Attestation Primitives (Intel® SGX DCAP) will be installed on the Host ..."
                 IS_ATTESTATION_SUPPORTED=1
@@ -117,15 +124,15 @@ configure_attestation_host() {
         cd $CUR_DIR
         UserTokenHash=$(echo -n "$UserPassword" | sha512sum | cut -d ' ' -f 1)
         AdminTokenHash=$(echo -n "$AdminPassword" | sha512sum | cut -d ' ' -f 1)
-        sudo sed -i 's/"ApiKey".*/"ApiKey" : '\"$ApiKey\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
-        sudo sed -i 's/"UserTokenHash".*/"UserTokenHash" : '\"$UserTokenHash\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
-        sudo sed -i 's/"AdminTokenHash".*/"AdminTokenHash" : '\"$AdminTokenHash\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
-        sudo systemctl restart pccs
+        sed -i 's/"ApiKey".*/"ApiKey" : '\"$ApiKey\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
+        sed -i 's/"UserTokenHash".*/"UserTokenHash" : '\"$UserTokenHash\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
+        sed -i 's/"AdminTokenHash".*/"AdminTokenHash" : '\"$AdminTokenHash\"',/' /opt/intel/sgx-dcap-pccs/config/$PCCS_DEFAULT_JSON
+        systemctl restart pccs
 
         # Verify MPA registration log
         echo -e "\nVerifying MPA registration ..."
-        sudo rm -rf /var/log/mpa_registration.log
-        sudo systemctl restart mpa_registration_tool
+        rm -rf /var/log/mpa_registration.log
+        systemctl restart mpa_registration_tool
         sleep 5
         log=$(cat /var/log/mpa_registration.log)
         if [[ "$log" =~ "$MPA_REGISTRATION_CHECK" ]]; then
@@ -161,13 +168,13 @@ verify_attestation_host() {
         fi
 
         echo -e "\nVerifying Attestation services on the host ..."
-        status=$(sudo systemctl status qgsd)
+        status=$(systemctl status qgsd)
         verify_service_status "$status" "qgsd"
 
-        status=$(sudo systemctl status pccs)
+        status=$(systemctl status pccs)
         verify_service_status "$status" "pccs"
 
-        status=$(sudo systemctl status mpa_registration_tool)
+        status=$(systemctl status mpa_registration_tool)
         echo "$status"
         if ! [[ "$status" =~ "$MPA_SERVICE_CHECK" ]]; then
                 echo "$status"
@@ -215,8 +222,14 @@ verification_summary() {
         echo "| Attestation using Intel Tiber Trust Services |                "${VERIFY_ATTESTATION_GUEST:-FAILED}"               |"
         echo "|------------------------------------------------------------------------------------|"
 }
-
-sudo apt install --yes sshpass &> /dev/null
+cleanup(){
+	PID_TD=$(cat /tmp/tdx-demo-td-pid.pid 2> /dev/null)
+	[ ! -z "$PID_TD" ] && echo "Cleanup, kill TD vm PID: ${PID_TD}" && kill -TERM ${PID_TD} &> /dev/null
+	sleep 3
+	rm -f /tmp/tdx-guest-td.log /tmp/tdx-demo-td-pid.pid /tmp/tdx-demo-*-monitor.sock tdx-guest-setup.txt
+	rm -rf tdx_verifier
+}
+apt install --yes sshpass &> /dev/null
 
 clone_tdx_repo
 verify_tdx_host
@@ -236,4 +249,5 @@ else
         echo "========================================================================================================================="
 fi
 
+cleanup
 finally

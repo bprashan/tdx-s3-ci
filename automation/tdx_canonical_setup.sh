@@ -14,8 +14,13 @@ setup_tdx_host() {
         cd $TDX_DIR
         echo -e "\nSetting up the host for TDX..."
         sed -i 's/^TDX_SETUP_ATTESTATION=0/TDX_SETUP_ATTESTATION=1/' "$TDX_DIR"/setup-tdx-config
-        sudo -E ./setup-tdx-host.sh
+        ./setup-tdx-host.sh
+        usermod -aG kvm $USER
+}
+cleanup(){
+        rm -rf $TDX_DIR
 }
 
 clone_tdx_repo
 setup_tdx_host
+cleanup
