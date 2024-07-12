@@ -30,8 +30,7 @@ User need to provide below details in `tdx-config` file to check entire TDX func
    NOTE: If you're behind a proxy, use `sudo -E` to preserve user environment.
 
    ```
-   git clone https://github.com/bprashan/tdx-s3-ci.git
-   cd tdx-s3-ci/automation
+   cd TDX-ITA-IDC-Beta/scripts
    # update `tdx_config` file
    # sudo -E ./tdx_canonical_setup.sh
    sudo ./tdx_canonical_setup.sh
@@ -45,9 +44,9 @@ User need to provide below details in `tdx-config` file to check entire TDX func
 
    NOTE: The following is a sample BIOS configuration. The necessary BIOS settings or the menus might differ based on the platform that is used. Please reach out to your OEM/ODM or independent BIOS vendor for instructions dedicated for your BIOS.
 
-2. Go to Socket Configuration > Processor Configuration > TME, TME-MT, TDX.
-
+2. Update BIOS configuration as mentioned below.
   ```
+  Go to Socket Configuration > Processor Configuration > TME, TME-MT, TDX.
   Set Memory Encryption (TME) to Enabled
   Set Total Memory Encryption Bypass to Enabled (Optional setting for best host OS and regular VM performance.)
   Set Total Memory Encryption Multi-Tenant (TME-MT) to Enabled
@@ -55,8 +54,8 @@ User need to provide below details in `tdx-config` file to check entire TDX func
   Set Trust Domain Extension (TDX) to Enabled
   Set TDX Secure Arbitration Mode Loader (SEAM Loader) to Enabled. (NOTE: This allows loading Intel TDX Loader and Intel TDX Module from the ESP or BIOS.)
   Set TME-MT/TDX key split to a non-zero value
-  Go to Socket Configuration > Processor Configuration > Software Guard Extension (SGX).
 
+  Go to Socket Configuration > Processor Configuration > Software Guard Extension (SGX).
   Set SGX Factory Reset to Enabled  
   Set SW Guard Extensions (SGX) to Enabled
   Set SGX Auto MP Registration to Enabled
@@ -71,7 +70,7 @@ User need to provide below details in `tdx-config` file to check entire TDX func
    NOTE: If you're behind a proxy, use `sudo -E` to preserve user environment.
 
    ```
-   cd tdx-s3-ci/automation
+   cd TDX-ITA-IDC-Beta/scripts
    # sudo -E ./tdx_canonical_setup.sh
    sudo ./tdx_canonical_verifier.sh
    ```
