@@ -6,7 +6,6 @@ TDX_CONFIG=tdx-config
 TDX_DIR="$CUR_DIR"/tdx_verifier
 source "$CUR_DIR"/$TDX_CONFIG
 GUEST_TOOLS_DIR=$TDX_DIR/guest-tools/
-GUEST_IMG_DIR="$GUEST_TOOLS_DIR"/image
 MPA_SERVICE_CHECK="mpa_registration_tool.service; enabled; preset: enabled"
 VERIFY_ATTESTATION_SCRIPT="verify_attestation_td_guest.sh"
 TD_GUEST_PASSWORD=123456
@@ -19,6 +18,7 @@ if [[ -z "$SUDO_USER" ]]; then
 else
 	LOGIN_USER=$SUDO_USER
 fi
+TD_IMAGE_DIR=/home/$LOGIN_USER/td_image
 
 finally() {
         verification_summary
@@ -44,29 +44,17 @@ verify_tdx_host() {
                 echo "$var"
                 echo -e "\n\nERROR: TDX is not enabled on the Host"
                 return -1
-        fi
-}
-
-create_td_image() {
-        echo -e "\nCreating TD image ..."
-        cd "$GUEST_IMG_DIR"
-        var=$(./create-td-image.sh)
-        if [ $? -ne 0 ]; then
-                echo "$var"
-                echo -e "\n\n ERROR: TD image creation failed"
-                return -1
-        fi
-	mkdir -p /home/$LOGIN_USER/td_image
-	cp -f tdx-guest-ubuntu-24.04-generic.qcow2  /home/$LOGIN_USER/td_image
-	chown -R $LOGIN_USER:$LOGIN_USER /home/$LOGIN_USER/td_image
-	cp $TDX_DIR/../config.json /home/$LOGIN_USER/td_image
-        CREATE_TD_IMAGE="PASSED"
+	fi
 }
 
 run_td_guest() {
         echo -e "\nBoot TD guest ..."
+	if [ ! -e $TD_IMAGE_DIR/tdx-guest-ubuntu-24.04-generic.qcow2 ]; then
+                echo -e "\n\nERROR: TD guest image is missing under $TD_IMAGE_DIR"
+                return 1
+        fi
         cd "$GUEST_TOOLS_DIR"
-        var=$(./run_td.sh)
+        var=$( TD_IMG=$TD_IMAGE_DIR/tdx-guest-ubuntu-24.04-generic.qcow2 ./run_td.sh)
         if [ $? -ne 0 ]; then
                 echo "$var"
                 echo -e "\n\nERROR: Booting TD guest failed"
@@ -213,7 +201,6 @@ verification_summary() {
         echo "|                 Steps                        |                Status               |"
         echo "|----------------------------------------------|-------------------------------------|"
         echo "| TDX HOST Enabled check                       |                "${VERIFY_TDX_HOST:-FAILED}"               |"
-        echo "| TD Image Creation                            |                "${CREATE_TD_IMAGE:-FAILED}"               |"
         echo "| Boot TD Guest                                |                "${RUN_TD_GUEST:-FAILED}"               |"
         echo "| Verify TD Guest                              |                "${VERIFY_TD_GUEST:-FAILED}"               |"
         echo "| Is Attestation Support                       |                "${IS_ATTESTATION_SUPPORTED:-False}"                |"
@@ -233,7 +220,6 @@ apt install --yes sshpass &> /dev/null
 
 clone_tdx_repo
 verify_tdx_host
-create_td_image
 run_td_guest
 check_attestation_support
 

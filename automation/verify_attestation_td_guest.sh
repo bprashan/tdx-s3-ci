@@ -14,8 +14,6 @@ setup_intel_tiber_trust_service(){
                 export http_proxy="$http_proxy"
                 export https_proxy="$https_proxy"
         fi
-        cd $ATTESTATION_DIR
-        ./setup-attestation-guest.sh
         trustauthority-cli version
         if ! [[ $? == 0 ]]; then
                 echo -e "\nERROR: trustauthority service is not installed"
