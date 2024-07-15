@@ -14,11 +14,11 @@ MPA_REGISTRATION_CHECK="INFO: Registration Flow - Registration status indicates 
 TRUSTAUTHORITY_API_FILE="config.json"
 PCCS_DEFAULT_JSON="default.json"
 if [[ -z "$SUDO_USER" ]]; then
-	LOGIN_USER=`whoami`
+        LOGIN_USER=`whoami`
 else
-	LOGIN_USER=$SUDO_USER
+        LOGIN_USER=$SUDO_USER
 fi
-TD_IMAGE_DIR=/home/$LOGIN_USER/td_image
+TD_IMAGE_PATH=/home/$LOGIN_USER/td_image/tdx-guest-ubuntu-24.04-generic.qcow2
 
 finally() {
         verification_summary
@@ -44,17 +44,17 @@ verify_tdx_host() {
                 echo "$var"
                 echo -e "\n\nERROR: TDX is not enabled on the Host"
                 return -1
-	fi
+        fi
 }
 
 run_td_guest() {
         echo -e "\nBoot TD guest ..."
-	if [ ! -e $TD_IMAGE_DIR/tdx-guest-ubuntu-24.04-generic.qcow2 ]; then
-                echo -e "\n\nERROR: TD guest image is missing under $TD_IMAGE_DIR"
+        if [ ! -f $TD_IMAGE_PATH ]; then
+                echo -e "\n\nERROR: TD guest image is not found at $TD_IMAGE_PATH"
                 return 1
         fi
         cd "$GUEST_TOOLS_DIR"
-        var=$( TD_IMG=$TD_IMAGE_DIR/tdx-guest-ubuntu-24.04-generic.qcow2 ./run_td.sh)
+        var=$( TD_IMG=$TD_IMAGE_PATH ./run_td.sh)
         if [ $? -ne 0 ]; then
                 echo "$var"
                 echo -e "\n\nERROR: Booting TD guest failed"
@@ -179,7 +179,7 @@ verify_attestation_guest() {
         output=0
 
         sed -i 's/"trustauthority_api_key".*/"trustauthority_api_key":'\"$trustauthority_api_key\"'/' $TRUSTAUTHORITY_API_FILE
-        sshpass -p "$TD_GUEST_PASSWORD" rsync -avz --exclude={'*.img','*.qcow2'} -e "ssh -p $TD_GUEST_PORT" "$TDX_DIR" "$VERIFY_ATTESTATION_SCRIPT" "$TRUSTAUTHORITY_API_FILE" "$TDX_CONFIG" root@localhost:/tmp/ 2>&1 || output=1
+        sshpass -p "$TD_GUEST_PASSWORD" rsync -avz --exclude={'*.img','*.qcow2'} -e "ssh -p $TD_GUEST_PORT" "utils/$VERIFY_ATTESTATION_SCRIPT" "$TRUSTAUTHORITY_API_FILE" "$TDX_CONFIG" root@localhost:/tmp/ 2>&1 || output=1
         if [ $output -ne 0 ]; then
                 echo "ERROR: tdx canonical files are not copied to the TD guest"
                 return -1
@@ -209,13 +209,15 @@ verification_summary() {
         echo "| Attestation using Intel Tiber Trust Services |                "${VERIFY_ATTESTATION_GUEST:-FAILED}"               |"
         echo "|------------------------------------------------------------------------------------|"
 }
+
 cleanup(){
-	PID_TD=$(cat /tmp/tdx-demo-td-pid.pid 2> /dev/null)
-	[ ! -z "$PID_TD" ] && echo "Cleanup, kill TD vm PID: ${PID_TD}" && kill -TERM ${PID_TD} &> /dev/null
-	sleep 3
-	rm -f /tmp/tdx-guest-td.log /tmp/tdx-demo-td-pid.pid /tmp/tdx-demo-*-monitor.sock tdx-guest-setup.txt
-	rm -rf tdx_verifier
+        PID_TD=$(cat /tmp/tdx-demo-td-pid.pid 2> /dev/null)
+        [ ! -z "$PID_TD" ] && echo "Cleanup, kill TD vm PID: ${PID_TD}" && kill -TERM ${PID_TD} &> /dev/null
+        sleep 3
+        rm -f /tmp/tdx-guest-td.log /tmp/tdx-demo-td-pid.pid /tmp/tdx-demo-*-monitor.sock tdx-guest-setup.txt
+        rm -rf tdx_verifier
 }
+
 apt install --yes sshpass &> /dev/null
 
 clone_tdx_repo

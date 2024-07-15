@@ -3,28 +3,24 @@ CUR_DIR=$(pwd)
 TD_QUOTE_TEXT="Successfully get the TD Quote"
 TD_REPORT_TEXT="Wrote TD Report to report.dat"
 TRUST_SERVICE_PATH=/usr/share/doc/libtdx-attest-dev/examples/
-TDX_DIR="$CUR_DIR"/tdx_verifier
-ATTESTATION_DIR="$TDX_DIR"/attestation
 source "$CUR_DIR"/tdx-config
 
-setup_intel_tiber_trust_service(){
-        echo "Installing attestation packages on TD guest and verifying it ..."
+setup_proxy_inside_guest(){
+        echo "Updating the proxy details on td guest..."
         if ! [[ -z "$http_proxy" || -z "$https_proxy" ]]; then
                 echo -e "Acquire::http::proxy \"$http_proxy\";\nAcquire::https::proxy \"$https_proxy\";" > /etc/apt/apt.conf.d/tdx_proxy
                 export http_proxy="$http_proxy"
                 export https_proxy="$https_proxy"
         fi
+}
+
+verify_intel_tiber_trust_service(){
+        echo -e "\nChecking whether Intel Tiber Trust Services is running ..."
         trustauthority-cli version
         if ! [[ $? == 0 ]]; then
                 echo -e "\nERROR: trustauthority service is not installed"
                 exit 1
         fi
-}
-
-
-
-verify_intel_tiber_trust_service(){
-        echo -e "\nChecking whether Intel Tiber Trust Services is running ..."
         cd $TRUST_SERVICE_PATH
         var=$(./test_tdx_attest)
         if [[ ("$var" =~ "$TD_QUOTE_TEXT") && ("$var" =~ "$TD_REPORT_TEXT") ]]; then
@@ -54,6 +50,6 @@ attest_intel_tiber_trust_service(){
         fi
 }
 
-setup_intel_tiber_trust_service
+setup_proxy_inside_guest
 verify_intel_tiber_trust_service
 attest_intel_tiber_trust_service

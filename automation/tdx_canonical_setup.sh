@@ -7,9 +7,9 @@ GUEST_TOOLS_DIR=$TDX_DIR/guest-tools/
 GUEST_IMG_DIR="$GUEST_TOOLS_DIR"/image
 GUEST_IMG="tdx-guest-ubuntu-24.04-generic.qcow2"
 if [[ -z "$SUDO_USER" ]]; then
-	LOGIN_USER=`whoami`
+        LOGIN_USER=`whoami`
 else
-	LOGIN_USER=$SUDO_USER
+        LOGIN_USER=$SUDO_USER
 fi
 TD_IMAGE_DIR=/home/$LOGIN_USER/td_image
 
@@ -52,13 +52,14 @@ create_td_image() {
 }
 
 copy_td_image(){
-	mkdir -p $TD_IMAGE_DIR
-	if [ -e $TD_IMAGE_DIR/$GUEST_IMG ]; then
-		rm -rf $TD_IMAGE_DIR/$GUEST_IMG
-	fi
-	cp -f $GUEST_IMG  $TD_IMAGE_DIR
-	chown -R $LOGIN_USER:$LOGIN_USER $TD_IMAGE_DIR
-	cp $CUR_DIR/config.json $TD_IMAGE_DIR
+        mkdir -p $TD_IMAGE_DIR
+        if [ -e $TD_IMAGE_DIR/$GUEST_IMG ]; then
+                rm -rf $TD_IMAGE_DIR/$GUEST_IMG
+        fi
+        cd "$GUEST_IMG_DIR"
+        cp -f $GUEST_IMG  $TD_IMAGE_DIR
+        chown -R $LOGIN_USER:$LOGIN_USER $TD_IMAGE_DIR
+        cp $CUR_DIR/config.json $TD_IMAGE_DIR
         CREATE_TD_IMAGE="PASSED"
 }
 
@@ -67,15 +68,15 @@ setup_summary() {
         echo "|----------------------------------------------------------------------------- |"
         echo "|                 Steps                     |                Status            |"
         echo "|-------------------------------------------|----------------------------------|"
-        echo "| setup TDX host                            |                "${SETUP_TDX_HOST:-FAILED}"            |"
+        echo "| Setup TDX host                            |                "${SETUP_TDX_HOST:-FAILED}"            |"
         echo "| TD Image Creation                         |                "${CREATE_TD_IMAGE:-FAILED}"            |"
         echo "|------------------------------------------------------------------------------|"
 
         if [ ! -z "${CREATE_TD_IMAGE}" ] ; then
                 echo "==============================================================================="
                 echo "The setup has been done successfully. Please enable now TDX in the BIOS."
+                echo "TD Guest Image path : $TD_IMAGE_DIR/$GUEST_IMG"
                 echo "==============================================================================="
-                echo "TD Guest Image path : $TD_IMAGE_DIR/tdx-guest-ubuntu-24.04-generic.qcow2"
         fi
 }
 
