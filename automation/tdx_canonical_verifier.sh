@@ -6,7 +6,6 @@ TDX_CONFIG=tdx-config
 TDX_DIR="$CUR_DIR"/tdx_verifier
 source "$CUR_DIR"/$TDX_CONFIG
 GUEST_TOOLS_DIR=$TDX_DIR/guest-tools/
-GUEST_IMG_DIR="$GUEST_TOOLS_DIR"/image
 MPA_SERVICE_CHECK="mpa_registration_tool.service; enabled; preset: enabled"
 VERIFY_ATTESTATION_SCRIPT="verify_attestation_td_guest.sh"
 TD_GUEST_PASSWORD=123456
@@ -15,10 +14,11 @@ MPA_REGISTRATION_CHECK="INFO: Registration Flow - Registration status indicates 
 TRUSTAUTHORITY_API_FILE="config.json"
 PCCS_DEFAULT_JSON="default.json"
 if [[ -z "$SUDO_USER" ]]; then
-	LOGIN_USER=`whoami`
+        LOGIN_USER=`whoami`
 else
-	LOGIN_USER=$SUDO_USER
+        LOGIN_USER=$SUDO_USER
 fi
+TD_IMAGE_PATH=/home/$LOGIN_USER/td_image/tdx-guest-ubuntu-24.04-generic.qcow2
 
 finally() {
         verification_summary
@@ -47,26 +47,14 @@ verify_tdx_host() {
         fi
 }
 
-create_td_image() {
-        echo -e "\nCreating TD image ..."
-        cd "$GUEST_IMG_DIR"
-        var=$(./create-td-image.sh)
-        if [ $? -ne 0 ]; then
-                echo "$var"
-                echo -e "\n\n ERROR: TD image creation failed"
-                return -1
-        fi
-	mkdir -p /home/$LOGIN_USER/td_image
-	cp -f tdx-guest-ubuntu-24.04-generic.qcow2  /home/$LOGIN_USER/td_image
-	chown -R $LOGIN_USER:$LOGIN_USER /home/$LOGIN_USER/td_image
-	cp $TDX_DIR/../config.json /home/$LOGIN_USER/td_image
-        CREATE_TD_IMAGE="PASSED"
-}
-
 run_td_guest() {
         echo -e "\nBoot TD guest ..."
+        if [ ! -f $TD_IMAGE_PATH ]; then
+                echo -e "\n\nERROR: TD guest image is not found at $TD_IMAGE_PATH"
+                return 1
+        fi
         cd "$GUEST_TOOLS_DIR"
-        var=$(./run_td.sh)
+        var=$( TD_IMG=$TD_IMAGE_PATH ./run_td.sh)
         if [ $? -ne 0 ]; then
                 echo "$var"
                 echo -e "\n\nERROR: Booting TD guest failed"
@@ -191,7 +179,7 @@ verify_attestation_guest() {
         output=0
 
         sed -i 's/"trustauthority_api_key".*/"trustauthority_api_key":'\"$trustauthority_api_key\"'/' $TRUSTAUTHORITY_API_FILE
-        sshpass -p "$TD_GUEST_PASSWORD" rsync -avz --exclude={'*.img','*.qcow2'} -e "ssh -p $TD_GUEST_PORT" "$TDX_DIR" "$VERIFY_ATTESTATION_SCRIPT" "$TRUSTAUTHORITY_API_FILE" "$TDX_CONFIG" root@localhost:/tmp/ 2>&1 || output=1
+        sshpass -p "$TD_GUEST_PASSWORD" rsync -avz --exclude={'*.img','*.qcow2'} -e "ssh -p $TD_GUEST_PORT" "utils/$VERIFY_ATTESTATION_SCRIPT" "$TRUSTAUTHORITY_API_FILE" "$TDX_CONFIG" root@localhost:/tmp/ 2>&1 || output=1
         if [ $output -ne 0 ]; then
                 echo "ERROR: tdx canonical files are not copied to the TD guest"
                 return -1
@@ -213,7 +201,6 @@ verification_summary() {
         echo "|                 Steps                        |                Status               |"
         echo "|----------------------------------------------|-------------------------------------|"
         echo "| TDX HOST Enabled check                       |                "${VERIFY_TDX_HOST:-FAILED}"               |"
-        echo "| TD Image Creation                            |                "${CREATE_TD_IMAGE:-FAILED}"               |"
         echo "| Boot TD Guest                                |                "${RUN_TD_GUEST:-FAILED}"               |"
         echo "| Verify TD Guest                              |                "${VERIFY_TD_GUEST:-FAILED}"               |"
         echo "| Is Attestation Support                       |                "${IS_ATTESTATION_SUPPORTED:-False}"                |"
@@ -222,18 +209,19 @@ verification_summary() {
         echo "| Attestation using Intel Tiber Trust Services |                "${VERIFY_ATTESTATION_GUEST:-FAILED}"               |"
         echo "|------------------------------------------------------------------------------------|"
 }
+
 cleanup(){
-	PID_TD=$(cat /tmp/tdx-demo-td-pid.pid 2> /dev/null)
-	[ ! -z "$PID_TD" ] && echo "Cleanup, kill TD vm PID: ${PID_TD}" && kill -TERM ${PID_TD} &> /dev/null
-	sleep 3
-	rm -f /tmp/tdx-guest-td.log /tmp/tdx-demo-td-pid.pid /tmp/tdx-demo-*-monitor.sock tdx-guest-setup.txt
-	rm -rf tdx_verifier
+        PID_TD=$(cat /tmp/tdx-demo-td-pid.pid 2> /dev/null)
+        [ ! -z "$PID_TD" ] && echo "Cleanup, kill TD vm PID: ${PID_TD}" && kill -TERM ${PID_TD} &> /dev/null
+        sleep 3
+        rm -f /tmp/tdx-guest-td.log /tmp/tdx-demo-td-pid.pid /tmp/tdx-demo-*-monitor.sock tdx-guest-setup.txt
+        rm -rf tdx_verifier
 }
+
 apt install --yes sshpass &> /dev/null
 
 clone_tdx_repo
 verify_tdx_host
-create_td_image
 run_td_guest
 check_attestation_support
 

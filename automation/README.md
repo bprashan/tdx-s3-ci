@@ -35,8 +35,22 @@ User need to provide below details in `tdx-config` file to check entire TDX func
    # sudo -E ./tdx_canonical_setup.sh
    sudo ./tdx_canonical_setup.sh
    ```
+2. Towards the end you should see a summary like below. TD Guest Image shall be stored under $HOME/td_image directory
 
-2. Reboot
+   ```
+   ---------------------------------SETUP STATUS----------------------------------
+   |----------------------------------------------------------------------------- |
+   |                 Steps                     |                Status            |
+   |-------------------------------------------|----------------------------------|
+   | Setup TDX host                            |                PASSED            |
+   | TD Image Creation                         |                PASSED            |
+   |------------------------------------------------------------------------------|
+   ===============================================================================
+   The setup has been done successfully. Please enable now TDX in the BIOS.
+   TD Guest Image path : $HOME/td_image/tdx-guest-ubuntu-24.04-generic.qcow2
+   ===============================================================================
+   ```
+3. Reboot
 
 ### 3.4 Enable Intel TDX in the Host's BIOS
 
@@ -45,21 +59,21 @@ User need to provide below details in `tdx-config` file to check entire TDX func
    NOTE: The following is a sample BIOS configuration. The necessary BIOS settings or the menus might differ based on the platform that is used. Please reach out to your OEM/ODM or independent BIOS vendor for instructions dedicated for your BIOS.
 
 2. Update BIOS configuration as mentioned below.
-  ```
-  Go to Socket Configuration > Processor Configuration > TME, TME-MT, TDX.
-  Set Memory Encryption (TME) to Enabled
-  Set Total Memory Encryption Bypass to Enabled (Optional setting for best host OS and regular VM performance.)
-  Set Total Memory Encryption Multi-Tenant (TME-MT) to Enabled
-  Set TME-MT memory integrity to Disabled
-  Set Trust Domain Extension (TDX) to Enabled
-  Set TDX Secure Arbitration Mode Loader (SEAM Loader) to Enabled. (NOTE: This allows loading Intel TDX Loader and Intel TDX Module from the ESP or BIOS.)
-  Set TME-MT/TDX key split to a non-zero value
+   ```
+   Go to Socket Configuration > Processor Configuration > TME, TME-MT, TDX.
+   Set Memory Encryption (TME) to Enabled
+   Set Total Memory Encryption Bypass to Enabled (Optional setting for best host OS and regular VM performance.)
+   Set Total Memory Encryption Multi-Tenant (TME-MT) to Enabled
+   Set TME-MT memory integrity to Disabled
+   Set Trust Domain Extension (TDX) to Enabled
+   Set TDX Secure Arbitration Mode Loader (SEAM Loader) to Enabled. (NOTE: This allows loading Intel TDX Loader and Intel TDX Module from the ESP or BIOS.)
+   Set TME-MT/TDX key split to a non-zero value
 
-  Go to Socket Configuration > Processor Configuration > Software Guard Extension (SGX).
-  Set SGX Factory Reset to Enabled  
-  Set SW Guard Extensions (SGX) to Enabled
-  Set SGX Auto MP Registration to Enabled
-  ```
+   Go to Socket Configuration > Processor Configuration > Software Guard Extension (SGX).
+   Set SGX Factory Reset to Enabled
+   Set SW Guard Extensions (SGX) to Enabled
+   Set SGX Auto MP Registration to Enabled
+   ```
 
 3. Save the BIOS settings and boot up.
 
@@ -83,7 +97,6 @@ User need to provide below details in `tdx-config` file to check entire TDX func
    |                 Steps                        |                Status               |
    |----------------------------------------------|-------------------------------------|
    | TDX HOST Enabled check                       |                PASSED               |
-   | TD Image Creation                            |                PASSED               |
    | Boot TD Guest                                |                PASSED               |
    | Verify TD Guest                              |                PASSED               |
    | Is Attestation Support                       |                True                 |
