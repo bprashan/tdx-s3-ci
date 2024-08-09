@@ -154,6 +154,16 @@ run_pycloudstack(){
         fi
 }
 
+setup_canonical_suite(){
+	echo "Installing Canonical suite required packages on host system"
+	sudo apt install tox python3
+}
+
+run_canonical_suite(){
+	cd $TDX_DIR/tests/tests
+	export TDXTEST_GUEST_IMG=$QCOW2_IMG
+	sudo -E tox -e test_specify -- "not tdreport and not perf_benchmark"
+}
 while true; do
         case "$1" in
                 --setuptdx ) echo "setuptdx got selected"; setuptdx ;shift ;;
@@ -162,7 +172,8 @@ while true; do
                 --runtdqemu ) echo "runtdqemu got selected"; runtdqemu ;shift ;;
                 --runtdlibvirt ) echo "runtdlibvirt got selected"; runtdlibvirt ;shift ;;
                 --smoke ) echo "Verify entire TDX and TD guest configuraiton"; createtd; runtdqemu; runtdlibvirt ;shift ;;
-                --automatedtests ) echo "Pycloudstack automated tests got selected"; createtd; setup_pycloudstack; run_pycloudstack $2 ;shift ;;
+		--pycloudstack_automatedtests  ) echo "Pycloudstack automated tests got selected"; setuptdx; verifytdx; createtd; setup_pycloudstack; run_pycloudstack $2 ;shift ;;
+		--canonical_automatedtests  ) echo "Canonical automated tests got selected"; setuptdx; verifytdx; createtd; setup_canonical_suite; run_canonical_suite ;shift ;;
                 -- ) shift; break;;
                 * ) break;;
         esac

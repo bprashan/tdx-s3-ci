@@ -98,12 +98,12 @@ pipeline{
             }
         }
 
-        stage('Run PyCloudStack Automated Test Suite'){
+        /*stage('Run PyCloudStack Automated Test Suite'){
             steps{
                 node (tdxnode){
                     script{
                         dir ("${workdir}"){
-                            sh "sudo ./$tdx_linux_stack_script --automatedtests"
+                            sh "sudo ./$tdx_linux_stack_script --pycloudstack_automatedtests"
                         }
                     }
                 }
@@ -114,6 +114,28 @@ pipeline{
                         dir ("${workdir}"){
                             archiveArtifacts 'tdx-tools/tests/output/*.xml'
                             junit 'tdx-tools/tests/output/*.xml'
+                        }
+                    }
+                }
+            }
+        }*/
+
+	stage('Run Canonical Automated Test Suite'){
+            steps{
+                node (tdxnode){
+                    script{
+                        dir ("${workdir}"){
+                            sh "sudo ./$tdx_linux_stack_script --canonical_automatedtests"
+                        }
+                    }
+                }
+            }
+            post{
+                always{
+                    node (tdxnode){
+                        dir ("${workdir}"){
+                            archiveArtifacts 'tdx/tests/*.xml'
+                            junit 'tdx/tests/*.xml'
                         }
                     }
                 }
