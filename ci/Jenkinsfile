@@ -46,18 +46,18 @@ pipeline{
                         echo "system distro: ${distro}"
                         dir ('ci'){
                             workdir = pwd()
-                        if (distro.contains('CentOS')){
+                            if (distro.contains('CentOS')){
                                 tdx_linux_stack_script = 'tdx_centos_linux_stack.sh'
                             }
                             sh "chmod +x $tdx_linux_stack_script"
                             def statusCode = sh(script: "sudo ./$tdx_linux_stack_script --setuptdx", returnStatus:true)
                             if (statusCode != 0 ){
-                               if(statusCode == 3){
+                                if(statusCode == 3){
                                     echo "Build machine will be restarted..."
                                     isRestartrequired = true
                                 }else {
                                     sh "exit 1"
-                               }
+                                }
                             }
                         }
                     }
