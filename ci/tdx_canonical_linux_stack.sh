@@ -52,11 +52,17 @@ verifytdx(){
 createtd(){
         echo $GUEST_IMG_DIR
         cd "$GUEST_IMG_DIR"
-        ./create-td-image.sh
-        virt-get-kernel -a $QCOW2_IMG
-        VMLINUZ="$GUEST_IMG_DIR"/"$(ls | grep vmlinuz)"
-        echo "$VMLINUZ"
-        cd "$TDX_DIR"
+        if [ -e td_image_created ]; then
+                echo "TD image already present"
+                VMLINUZ="$GUEST_IMG_DIR"/"$(ls | grep vmlinuz)"
+        else
+                ./create-td-image.sh
+                virt-get-kernel -a $QCOW2_IMG
+                VMLINUZ="$GUEST_IMG_DIR"/"$(ls | grep vmlinuz)"
+                touch td_image_created
+        fi
+	echo "$VMLINUZ"
+	cd "$TDX_DIR"
 }
 
 verifytd(){
@@ -92,6 +98,9 @@ runtdqemu(){
         echo "verifying TD guest on QEMU"
         port_num=$(echo $var | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
         verifytd $port_num
+        pid=$(echo $var | awk -F ', PID:' '{print $2}' | cut -d ' ' -f 2 | sed 's/,/ /g')
+        echo "Killing Qemu with PID $pid"
+        kill -9 $pid
 }
 
 runtdlibvirt(){
@@ -114,13 +123,16 @@ runtdlibvirt(){
                 port_num=$(echo $var | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
         else
                 port_num=$(echo $(./tdvirsh list --all) | awk -F 'ssh:' '{print $2}' | cut -d ',' -f 1)
+                vm_name=$(echo $var | awk -F 'Name:' '{print $2}' | cut -d ' ' -f 2)
         fi
         verifytd $port_num
+        del_vm=$(./tdvirsh delete ${vm_name})
+        echo $del_vm
 }
 
 setup_pycloudstack(){
         echo "Installing PyCloudStack required packages in Guest image"
-        LIBGUESTFS_DEBUG=1 LIBGUESTFS_TRACE=1 virt-customize -a $QCOW2_IMG --install qemu-utils,libguestfs-tools,cpuid,python3-virtualenv,python3-libvirt,libguestfs-dev,libvirt-dev,python3-dev,net-tools,qemu-guest-agent,docker.io,cgroupfs-mount --run-command 'cgroupfs-mount' --run-command 'dockerd -D &' --run-command "docker pull redis" --run-command "docker pull nginx"
+        LIBGUESTFS_DEBUG=1 LIBGUESTFS_TRACE=1 virt-customize -a $QCOW2_IMG --install qemu-utils,libguestfs-tools,cpuid,python3-virtualenv,python3-libvirt,libguestfs-dev,libvirt-dev,python3-dev,net-tools,qemu-guest-agent,docker.io,cgroupfs-mount --run-command 'cgroupfs-mount' --run-command 'dockerd -D &' --run-command "sed -i 's/169.254.2.3/127.0.0.53/g' /etc/resolv.conf"
         echo "Installing PyCloudStack required packages on host system"
         apt install -y python3-virtualenv python3-libvirt libguestfs-dev libvirt-dev python3-dev net-tools
         usermod -aG libvirt root
@@ -161,6 +173,7 @@ setup_canonical_suite(){
 
 run_canonical_suite(){
 	cd $TDX_DIR/tests/tests
+	export TDXTEST_GUEST_IMG=$QCOW2_IMG
 	sudo -E tox -e test_specify -- "not tdreport and not perf_benchmark"
 }
 while true; do
@@ -171,8 +184,8 @@ while true; do
                 --runtdqemu ) echo "runtdqemu got selected"; runtdqemu ;shift ;;
                 --runtdlibvirt ) echo "runtdlibvirt got selected"; runtdlibvirt ;shift ;;
                 --smoke ) echo "Verify entire TDX and TD guest configuraiton"; createtd; runtdqemu; runtdlibvirt ;shift ;;
-		--pycloudstack_automatedtests  ) echo "Pycloudstack automated tests got selected"; setuptdx; verifytdx; createtd; setup_pycloudstack; run_pycloudstack $2 ;shift ;;
-		--canonical_automatedtests  ) echo "Canonical automated tests got selected"; setuptdx; verifytdx; createtd; setup_canonical_suite; run_canonical_suite ;shift ;;
+		--pycloudstack_automatedtests  ) echo "Pycloudstack automated tests got selected"; createtd; setup_pycloudstack; run_pycloudstack $2 ;shift ;;
+		--canonical_automatedtests  ) echo "Canonical automated tests got selected"; createtd; setup_canonical_suite; run_canonical_suite ;shift ;;
                 -- ) shift; break;;
                 * ) break;;
         esac
