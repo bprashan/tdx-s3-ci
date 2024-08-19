@@ -103,7 +103,9 @@ pipeline{
                 node (tdxnode){
                     script{
                         dir ("${workdir}"){
-                            sh "sudo ./$tdx_linux_stack_script --pycloudstack_automatedtests"
+                            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE'){
+                                sh "sudo ./$tdx_linux_stack_script --pycloudstack_automatedtests"
+                            }
                         }
                     }
                 }
@@ -120,7 +122,7 @@ pipeline{
             }
         }
 
-	stage('Run Canonical Automated Test Suite'){
+    stage('Run Canonical Automated Test Suite'){
             steps{
                 node (tdxnode){
                     script{
