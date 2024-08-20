@@ -1,6 +1,6 @@
 #!/bin/bash
 script_name=$(basename "$0")
-long=setuptdx,verifytdx,createtd,runtdqemu,runtdlibvirt,smoke,automatedtests
+long=setuptdx,verifytdx,createtd,runtdqemu,runtdlibvirt,smoke,pycloudstack_automatedtests,canonical_automatedtests
 TEMP=$(getopt -l $long -n $script_name -- "$@")
 CUR_DIR=$(pwd)
 TDX_DIR="$CUR_DIR"/tdx
@@ -176,6 +176,7 @@ run_canonical_suite(){
 	export TDXTEST_GUEST_IMG=$QCOW2_IMG
 	sudo -E tox -e test_specify -- "not tdreport and not perf_benchmark"
 }
+
 while true; do
         case "$1" in
                 --setuptdx ) echo "setuptdx got selected"; setuptdx ;shift ;;
@@ -184,8 +185,8 @@ while true; do
                 --runtdqemu ) echo "runtdqemu got selected"; runtdqemu ;shift ;;
                 --runtdlibvirt ) echo "runtdlibvirt got selected"; runtdlibvirt ;shift ;;
                 --smoke ) echo "Verify entire TDX and TD guest configuraiton"; createtd; runtdqemu; runtdlibvirt ;shift ;;
-		--pycloudstack_automatedtests  ) echo "Pycloudstack automated tests got selected"; createtd; setup_pycloudstack; run_pycloudstack $2 ;shift ;;
-		--canonical_automatedtests  ) echo "Canonical automated tests got selected"; createtd; setup_canonical_suite; run_canonical_suite ;shift ;;
+		--pycloudstack_automatedtests ) echo "Pycloudstack automated tests got selected"; createtd; setup_pycloudstack; run_pycloudstack $2 ;shift ;;
+		--canonical_automatedtests ) echo "Canonical automated tests got selected"; createtd; setup_canonical_suite; run_canonical_suite ;shift ;;
                 -- ) shift; break;;
                 * ) break;;
         esac
