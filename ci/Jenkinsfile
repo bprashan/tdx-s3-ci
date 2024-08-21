@@ -113,16 +113,20 @@ pipeline{
             post{
                 always{
                     node (tdxnode){
-                        dir ("${workdir}"){
-                            archiveArtifacts 'tdx-tools/tests/output/*.xml'
-                            junit 'tdx-tools/tests/output/*.xml'
+                        script{
+                            dir ("${workdir}"){
+                                if(findFiles(glob: "tdx-tools/tests/output/*.xml").length > 0){
+                                    archiveArtifacts 'tdx-tools/tests/output/*.xml'
+                                    junit 'tdx-tools/tests/output/*.xml'
+                                }
+                            }
                         }
                     }
                 }
             }
         }
 
-    stage('Run Canonical Automated Test Suite'){
+        stage('Run Canonical Automated Test Suite'){
             steps{
                 node (tdxnode){
                     script{
