@@ -91,7 +91,10 @@ pipeline{
                 node (tdxnode){
                     script{
                         dir ("${workdir}"){
-                            sh "sudo ./$tdx_linux_stack_script --smoke"
+                            // make sure below variables are added as a secret text in jenkins master node
+                            withCredentials([string(credentialsId: 'ApiKey', variable: 'ApiKey'), string(credentialsId: 'UserPassword', variable: 'UserPassword'), string(credentialsId: 'AdminPassword', variable: 'AdminPassword'), string(credentialsId: 'trustauthority_api_key', variable: 'trustauthority_api_key')]) {
+                                sh("sudo -E ./$tdx_linux_stack_script --smoke")
+                            }
                         }
                     }
                 }
@@ -131,7 +134,7 @@ pipeline{
                 node (tdxnode){
                     script{
                         dir ("${workdir}"){
-                            sh "sudo ./$tdx_linux_stack_script --canonical_automatedtests"
+                            sh "sudo -E ./$tdx_linux_stack_script --canonical_automatedtests"
                         }
                     }
                 }
