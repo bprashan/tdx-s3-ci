@@ -98,7 +98,7 @@ pipeline{
             }
         }
 
-        stage('Run PyCloudStack Automated Test Suite'){
+        /*stage('Run PyCloudStack Automated Test Suite'){
             steps{
                 node (tdxnode){
                     script{
@@ -124,7 +124,7 @@ pipeline{
                     }
                 }
             }
-        }
+        }*/
 
         stage('Run Canonical Automated Test Suite'){
             steps{

@@ -12,7 +12,7 @@ TDT_HOST_VERIFY_TEXT="tdx: module initialized"
 TD_GUEST_VERIFY_TEXT="tdx: Guest detected"
 LIBVIRT_CONF=/etc/libvirt/qemu.conf
 RESTART_CHECK_STRING='0 upgraded, 0 newly installed, 0 to remove'
-BRANCH_NAME=noble-24.04
+BRANCH_NAME=debug_ci_failure
 TD_VIRSH_BOOT_CMD="tdvirsh new"
 TD_VIRSH_DELETE_CMD="tdvirsh delete all"
 DISTRO_VER=$(. /etc/os-release; echo $VERSION_ID)
@@ -27,7 +27,7 @@ fi
 
 setuptdx(){
         [ -d $TDX_DIR ] && rm -rf $TDX_DIR
-        git clone -b $BRANCH_NAME https://github.com/canonical/tdx.git $TDX_DIR
+        git clone -b $BRANCH_NAME https://github.com/jinengandhi-intel/tdx.git $TDX_DIR
         cd $TDX_DIR
         ./setup-tdx-host.sh | tee setup_tdx.log
         if grep -viq "${RESTART_CHECK_STRING}" setup_tdx.log; then
