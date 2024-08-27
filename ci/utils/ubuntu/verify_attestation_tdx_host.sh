@@ -84,7 +84,7 @@ verify_attestation_host() {
 
 verify_attestation_guest() {
         echo -e "\nVerifying Attestation services on the guest ..."
-        cd "$CUR_DIR/utils/canonical"
+        cd "$CUR_DIR/utils/ubuntu"
         output=0
 
         sed -i 's/"trustauthority_api_key".*/"trustauthority_api_key":'\"$trustauthority_api_key\"'/' $TRUSTAUTHORITY_API_FILE
