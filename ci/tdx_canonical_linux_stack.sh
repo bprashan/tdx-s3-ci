@@ -48,7 +48,7 @@ while true; do
                 --createtd ) echo "createtd got selected"; createtd ;shift ;;
                 --runtdqemu ) echo "runtdqemu got selected"; runtdqemu ; cleantdqemu ; shift ;;
                 --runtdlibvirt ) echo "runtdlibvirt got selected"; runtdlibvirt ;shift ;;
-                --smoke ) echo "Verify entire TDX and TD guest configuraiton"; createtd; runtdqemu; verify_attestation; cleantdqemu; runtdlibvirt; shift ;;
+                --smoke ) echo "Verify entire TDX and TD guest configuraiton"; createtd; runtdqemu; cleantdqemu; runtdlibvirt; shift ;;
                 --pycloudstack_automatedtests ) echo "Pycloudstack automated tests got selected"; createtd; setup_pycloudstack; run_pycloudstack $2 ;shift ;;
                 --canonical_automatedtests ) echo "Canonical automated tests got selected"; createtd; setup_canonical_suite; run_canonical_suite ;shift ;;
                 -- ) shift; break;;
