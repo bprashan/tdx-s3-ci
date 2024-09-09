@@ -1,7 +1,7 @@
-def restartNode(node_label){
-
-    node ("$node_label") {
-        print "Rebooting $node_label........."
+// Function to restart a node
+def restartNode(node_label) {
+    node(node_label) {
+        echo "Rebooting $node_label..."
         if (isUnix()) {
             sh "sudo shutdown -r +1"
         } else {
@@ -9,91 +9,136 @@ def restartNode(node_label){
         }
     }
 
-    print "Waiting for the $node_label to reboot........."
-    sleep(time:80,unit:"SECONDS")
+    echo "Waiting for $node_label to reboot..."
+    sleep(time: 80, unit: "SECONDS")
 
-    def numberOfAttemps = 0
-    while (numberOfAttemps < 20) {
-        if(Jenkins.instance.getNode(node_label).toComputer().isOnline()){
-            print "Node $node_label is rebooted and ready to use"
-            return true;
+    def numberOfAttempts = 0
+    while (numberOfAttempts < 20) {
+        if (Jenkins.instance.getNode(node_label).toComputer().isOnline()) {
+            echo "Node $node_label is rebooted and ready to use"
+            return true
         }
-        print "Waiting for the $node_label to reboot........."
-        sleep(time:30,unit:"SECONDS")
-        numberOfAttemps += 1
+        echo "Waiting for $node_label to reboot..."
+        sleep(time: 30, unit: "SECONDS")
+        numberOfAttempts++
     }
-    print "Node $node_label is not up running"
+    echo "Node $node_label is not up and running"
     return false
 }
 
-tdxnode = 'tdx'
-workdir = ''
-tdx_linux_stack_script = 'tdx_canonical_linux_stack.sh'
-isRestartrequired = false
-
-pipeline{
+pipeline {
     agent none
 
-    stages{
-        stage('setup TDX host'){
-            steps{
-                node (tdxnode){
-                    script {
-                        tdxnode = NODE_NAME
-                        echo "tdxnode: $tdxnode, workspace: $workspace"
-                        checkout scm
-                        def distro = sh(script: ". /etc/os-release; echo \$NAME", returnStdout: true)
-                        echo "system distro: ${distro}"
-                        dir ('ci'){
-                            workdir = pwd()
-                            if (distro.contains('CentOS')){
-                                tdx_linux_stack_script = 'tdx_centos_linux_stack.sh'
+    options {
+        skipDefaultCheckout()
+    }
+
+    parameters {
+        string(defaultValue: 'noble-24.04', name: 'BRANCH_NAME', description: 'TDX repo. It supports branch name or tag or commitid')
+    }
+
+    environment {
+        TDX_NODE = 'tdx'
+        WORKDIR = ''
+        TDX_LINUX_STACK_SCRIPT = 'tdx_canonical_linux_stack.sh'
+        IS_RESTART_REQUIRED = false
+    }
+
+    stages {
+        stage('Setup TDX Host') {
+            agent { label TDX_NODE }
+            steps {
+                script {
+                    // Set up the TDX host
+                    TDX_NODE = env.NODE_NAME
+                    echo "tdxnode: $TDX_NODE, workspace: $WORKSPACE"
+                    checkout scm
+                    def distro = sh(script: ". /etc/os-release; echo \$NAME", returnStdout: true).trim()
+                    echo "System distro: ${distro}"
+                    dir('ci') {
+                        WORKDIR = pwd()
+                        if (distro.contains('CentOS')) {
+                            TDX_LINUX_STACK_SCRIPT = 'tdx_centos_linux_stack.sh'
+                        }
+                        sh "chmod +x $TDX_LINUX_STACK_SCRIPT"
+                        def statusCode = sh(script: "sudo ./$TDX_LINUX_STACK_SCRIPT --setuptdx", returnStatus: true)
+                        if (statusCode != 0) {
+                            if (statusCode == 3) {
+                                echo "Build machine will be restarted..."
+                                IS_RESTART_REQUIRED = true
+                            } else {
+                                error "Setup failed with status code $statusCode"
                             }
-                            sh "chmod +x $tdx_linux_stack_script"
-                            def statusCode = sh(script: "sudo ./$tdx_linux_stack_script --setuptdx", returnStatus:true)
-                            if (statusCode != 0 ){
-                                if(statusCode == 3){
-                                    echo "Build machine will be restarted..."
-                                    isRestartrequired = true
-                                }else {
-                                    sh "exit 1"
-                                }
-                            }
+                        }
+                    }
+                    // Update build description
+                    currentBuild.description = "tdx branch : " + BRANCH_NAME
+                }
+            }
+        }
+
+        stage('Restart TDX Host') {
+            when { expression { IS_RESTART_REQUIRED.toBoolean() == true } }
+            steps {
+                script {
+                    // Restart the TDX host if required
+                    restartNode(TDX_NODE)
+                }
+            }
+        }
+
+        stage('Verify TDX Host') {
+            agent { label TDX_NODE }
+            steps {
+                script {
+                    // Verify the TDX host setup
+                    dir(WORKDIR) {
+                        sh "sudo ./$tdx_linux_stack_script --verifytdx"
+                    }
+                }
+            }
+        }
+
+        stage('Run Smoke Test') {
+            agent { label TDX_NODE }
+            steps {
+                script {
+                    // Run smoke tests on the TDX host
+                    dir(WORKDIR) {
+                        withCredentials([
+                            string(credentialsId: 'ApiKey', variable: 'ApiKey'),
+                            string(credentialsId: 'UserPassword', variable: 'UserPassword'),
+                            string(credentialsId: 'AdminPassword', variable: 'AdminPassword'),
+                            string(credentialsId: 'trustauthority_api_key', variable: 'trustauthority_api_key')
+                        ]) {
+                            sh("sudo -E ./$tdx_linux_stack_script --smoke")
                         }
                     }
                 }
             }
         }
 
-        stage('restart tdx host'){
-            when { expression { return isRestartrequired } }
-            steps{
-                script{
-                    restartNode(tdxnode)
+        stage('Run PyCloudStack Automated Test Suite') {
+            when { expression { params.BRANCH_NAME == 'noble-24.04' } }
+            agent { label TDX_NODE }
+            steps {
+                script {
+                    // Run PyCloudStack automated tests
+                    dir(WORKDIR) {
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            sh "sudo ./$tdx_linux_stack_script --pycloudstack_automatedtests"
+                        }
+                    }
                 }
             }
-        }
-
-        stage('Verify tdx host'){
-            steps{
-                node (tdxnode){
+            post {
+                always {
                     script{
-                        dir ("${workdir}"){
-                            sh "sudo ./$tdx_linux_stack_script --verifytdx"
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Run smoke test'){
-            steps{
-                node (tdxnode){
-                    script{
-                        dir ("${workdir}"){
-                            // make sure below variables are added as a secret text in jenkins master node
-                            withCredentials([string(credentialsId: 'ApiKey', variable: 'ApiKey'), string(credentialsId: 'UserPassword', variable: 'UserPassword'), string(credentialsId: 'AdminPassword', variable: 'AdminPassword'), string(credentialsId: 'trustauthority_api_key', variable: 'trustauthority_api_key')]) {
-                                sh("sudo -E ./$tdx_linux_stack_script --smoke")
+                        // Archive and publish test results
+                        dir(WORKDIR) {
+                            if (findFiles(glob: "tdx-tools/tests/output/*.xml").length > 0) {
+                                archiveArtifacts 'tdx-tools/tests/output/*.xml'
+                                junit 'tdx-tools/tests/output/*.xml'
                             }
                         }
                     }
@@ -101,48 +146,22 @@ pipeline{
             }
         }
 
-        stage('Run PyCloudStack Automated Test Suite'){
-            steps{
-                node (tdxnode){
+        stage('Run Canonical Automated Test Suite') {
+            when { expression { params.BRANCH_NAME == 'noble-24.04' } }
+            agent { label TDX_NODE }
+            steps {
+                script {
+                    // Run Canonical automated tests
+                    dir(WORKDIR) {
+                        sh "sudo -E ./$tdx_linux_stack_script --canonical_automatedtests"
+                    }
+                }
+            }
+            post {
+                always {
                     script{
-                        dir ("${workdir}"){
-                            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE'){
-                                sh "sudo ./$tdx_linux_stack_script --pycloudstack_automatedtests"
-                            }
-                        }
-                    }
-                }
-            }
-            post{
-                always{
-                    node (tdxnode){
-                        script{
-                            dir ("${workdir}"){
-                                if(findFiles(glob: "tdx-tools/tests/output/*.xml").length > 0){
-                                    archiveArtifacts 'tdx-tools/tests/output/*.xml'
-                                    junit 'tdx-tools/tests/output/*.xml'
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Run Canonical Automated Test Suite'){
-            steps{
-                node (tdxnode){
-                    script{
-                        dir ("${workdir}"){
-                            sh "sudo -E ./$tdx_linux_stack_script --canonical_automatedtests"
-                        }
-                    }
-                }
-            }
-            post{
-                always{
-                    node (tdxnode){
-                        dir ("${workdir}"){
+                        // Archive and publish test results
+                        dir(WORKDIR) {
                             archiveArtifacts 'tdx/tests/*.xml'
                             junit 'tdx/tests/*.xml'
                         }
