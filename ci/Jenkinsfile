@@ -52,6 +52,7 @@ pipeline {
                     // Set up the TDX host
                     TDX_NODE = env.NODE_NAME
                     echo "tdxnode: $TDX_NODE, workspace: $WORKSPACE"
+                    sh "sudo rm -rf *"
                     cleanWs()
                     checkout scm
                     def distro = sh(script: ". /etc/os-release; echo \$NAME", returnStdout: true).trim()
@@ -167,18 +168,6 @@ pipeline {
                             junit 'tdx/tests/*.xml'
                         }
                     }
-                }
-            }
-        }
-    }
-    post{
-        always{
-            node(TDX_NODE) {
-                script{
-                    dir(WORKDIR) {
-                        sh "sudo rm -rf *"
-                    }
-                    cleanWs()
                 }
             }
         }

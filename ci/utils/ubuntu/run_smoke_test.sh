@@ -79,6 +79,7 @@ verifytd() {
 
 # Function to clean up existing TD guest instances
 cleanup() {
+    # Deletes all VMs created using libvirt
     ./$TD_VIRSH_DELETE_CMD
     fuser -k "$QCOW2_IMG"
     # Find all QEMU processes
@@ -141,9 +142,7 @@ runtdlibvirt() {
         port_num=$(echo "$var" | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
     else
         port_num=$(echo $(./tdvirsh list --all) | awk -F 'ssh:' '{print $2}' | cut -d ',' -f 1)
-        vm_name=$(echo "$var" | awk -F 'Name:' '{print $2}' | cut -d ' ' -f 2)
     fi
     verifytd "$port_num"
-    del_vm=$(./tdvirsh delete "${vm_name}")
-    echo "$del_vm"
+    cleanup
 }
