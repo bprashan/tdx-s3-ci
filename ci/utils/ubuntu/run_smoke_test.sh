@@ -81,6 +81,14 @@ verifytd() {
 cleanup() {
     ./$TD_VIRSH_DELETE_CMD
     fuser -k "$QCOW2_IMG"
+    # Find all QEMU processes
+    qemu_processes=$(ps -eF | grep qemu | grep -v grep | awk '{print $2}')
+    if [ ! -z "$qemu_processes" ]; then
+        for pid in $qemu_processes; do
+            echo "killing QEMU process with PID : $pid"
+            kill -9 $pid
+        done
+    fi
     sleep 20
 }
 
