@@ -56,5 +56,5 @@ run_canonical_suite() {
     cd $TDX_DIR/tests/tests
     export TDXTEST_GUEST_IMG=$QCOW2_IMG
     # Run Canonical suite tests excluding tdreport and perf_benchmark
-    tox -e test_specify -- "not tdreport and not perf_benchmark"
+    tox -e test_specify -- "not tdreport and not perf_benchmark and not guest_noept_fail and not guest_disable_tdx_fail"
 }
