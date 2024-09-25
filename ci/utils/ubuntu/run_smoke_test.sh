@@ -16,6 +16,9 @@ setuptdx() {
         echo -e "\n\n ERROR: Setup TDX Host failed"
         exit 1
     fi
+
+    apt install sshpass
+    usermod -aG kvm "$USER"
     
     # Check if system restart is required
     if grep -viq "${RESTART_CHECK_STRING}" setup_tdx.log; then
@@ -96,7 +99,6 @@ cleanup() {
 # Function to run TD guest with QEMU
 runtdqemu() {
     echo "creating TD guest with QEMU"
-    usermod -aG kvm "$USER"
     cd "$GUEST_TOOLS_DIR"
     cleanup
     var=$(./run_td.sh)
@@ -122,9 +124,9 @@ runtdlibvirt() {
     echo "creating TD guest with libvirt"
     
     # Update libvirt configuration
-    grep -q 'user =' "$LIBVIRT_CONF" && sed 's/^user =.*/user = "root"/' -i "$LIBVIRT_CONF" || echo 'user = "root"' >> "$LIBVIRT_CONF"
-    grep -q 'group =' "$LIBVIRT_CONF" && sed 's/^group =.*/group = "root"/' -i "$LIBVIRT_CONF" || echo 'group = "root"' >> "$LIBVIRT_CONF"
-    grep -q 'dynamic_ownership =' "$LIBVIRT_CONF" && sed 's/^dynamic_ownership =.*/dynamic_ownership = 0/' -i "$LIBVIRT_CONF" || echo 'dynamic_ownership = 0' >> "$LIBVIRT_CONF"
+    grep -q '^user =' "$LIBVIRT_CONF" && sed 's/^user =.*/user = "root"/' -i "$LIBVIRT_CONF" || echo 'user = "root"' | tee -a "$LIBVIRT_CONF"
+    grep -q '^group =' "$LIBVIRT_CONF" && sed 's/^group =.*/group = "root"/' -i "$LIBVIRT_CONF" || echo 'group = "root"' | tee -a "$LIBVIRT_CONF"
+    grep -q '^dynamic_ownership =' "$LIBVIRT_CONF" && sed 's/^dynamic_ownership =.*/dynamic_ownership = 0/' -i "$LIBVIRT_CONF" || echo 'dynamic_ownership = 0' | tee -a "$LIBVIRT_CONF"
     
     systemctl restart libvirtd
     cd "$GUEST_TOOLS_DIR"
