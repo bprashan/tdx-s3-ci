@@ -143,7 +143,7 @@ runtdlibvirt() {
     if [[ $DISTRO_VER == "23.10" ]]; then
         port_num=$(echo "$var" | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
     else
-        port_num=$(echo $(./tdvirsh list --all) | awk -F 'ssh:' '{print $2}' | cut -d ',' -f 1)
+        port_num=$(echo $(./tdvirsh list --all) | awk -F 'hostfwd:' '{print $2}' | cut -d ',' -f 1)
     fi
     verifytd "$port_num"
     cleanup
