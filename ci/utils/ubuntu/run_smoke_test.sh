@@ -127,6 +127,7 @@ runtdlibvirt() {
     grep -q '^user =' "$LIBVIRT_CONF" && sed 's/^user =.*/user = "root"/' -i "$LIBVIRT_CONF" || echo 'user = "root"' | tee -a "$LIBVIRT_CONF"
     grep -q '^group =' "$LIBVIRT_CONF" && sed 's/^group =.*/group = "root"/' -i "$LIBVIRT_CONF" || echo 'group = "root"' | tee -a "$LIBVIRT_CONF"
     grep -q '^dynamic_ownership =' "$LIBVIRT_CONF" && sed 's/^dynamic_ownership =.*/dynamic_ownership = 0/' -i "$LIBVIRT_CONF" || echo 'dynamic_ownership = 0' | tee -a "$LIBVIRT_CONF"
+    grep -q '^securtiy_driver =' "$LIBVIRT_CONF" && sed 's/^securtiy_driver =.*/securtiy_driver = none/' -i "$LIBVIRT_CONF" || echo 'securtiy_driver = none' | tee -a "$LIBVIRT_CONF"
     
     systemctl restart libvirtd
     cd "$GUEST_TOOLS_DIR"
