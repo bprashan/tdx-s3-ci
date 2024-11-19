@@ -108,7 +108,8 @@ runtdqemu() {
         exit 1
     fi
     echo "verifying TD guest on QEMU"
-    port_num=$(echo "$var" | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
+    #port_num=$(echo "$var" | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
+    port_num=10022
     verifytd "$port_num"
     QEMU_PID=$(echo "$var" | awk -F ', PID:' '{print $2}' | cut -d ' ' -f 2 | sed 's/,/ /g')
 }
@@ -127,7 +128,7 @@ runtdlibvirt() {
     grep -q '^user =' "$LIBVIRT_CONF" && sed 's/^user =.*/user = "root"/' -i "$LIBVIRT_CONF" || echo 'user = "root"' | tee -a "$LIBVIRT_CONF"
     grep -q '^group =' "$LIBVIRT_CONF" && sed 's/^group =.*/group = "root"/' -i "$LIBVIRT_CONF" || echo 'group = "root"' | tee -a "$LIBVIRT_CONF"
     grep -q '^dynamic_ownership =' "$LIBVIRT_CONF" && sed 's/^dynamic_ownership =.*/dynamic_ownership = 0/' -i "$LIBVIRT_CONF" || echo 'dynamic_ownership = 0' | tee -a "$LIBVIRT_CONF"
-    grep -q '^securtiy_driver =' "$LIBVIRT_CONF" && sed 's/^securtiy_driver =.*/securtiy_driver = none/' -i "$LIBVIRT_CONF" || echo 'securtiy_driver = none' | tee -a "$LIBVIRT_CONF"
+    grep -q '^security_driver =' "$LIBVIRT_CONF" && sed 's/^security_driver =.*/security_driver = "none"/' -i "$LIBVIRT_CONF" || echo 'security_driver = "none"' | tee -a "$LIBVIRT_CONF"
     
     systemctl restart libvirtd
     cd "$GUEST_TOOLS_DIR"
