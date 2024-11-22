@@ -50,7 +50,7 @@ createtd() {
     if [ -e td_image_created ]; then
         echo "TD image already present"
     else
-        ./create-td-image.sh
+        ./create-td-image.sh -v 24.04
         virt-get-kernel -a "$QCOW2_IMG"
         touch td_image_created
     fi
