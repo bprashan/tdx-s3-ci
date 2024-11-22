@@ -63,7 +63,7 @@ pipeline {
                             TDX_LINUX_STACK_SCRIPT = 'tdx_centos_linux_stack.sh'
                         }
                         sh "chmod +x $TDX_LINUX_STACK_SCRIPT"
-                        def statusCode = sh(script: "sudo ./$TDX_LINUX_STACK_SCRIPT --setuptdx", returnStatus: true)
+                        def statusCode = sh(script: "sudo -E ./$TDX_LINUX_STACK_SCRIPT --setuptdx", returnStatus: true)
                         if (statusCode != 0) {
                             if (statusCode == 3) {
                                 echo "Build machine will be restarted..."
@@ -95,7 +95,7 @@ pipeline {
                 script {
                     // Verify the TDX host setup
                     dir(WORKDIR) {
-                        sh "sudo ./$tdx_linux_stack_script --verifytdx"
+                        sh "sudo -E ./$tdx_linux_stack_script --verifytdx"
                     }
                 }
             }
@@ -128,7 +128,7 @@ pipeline {
                     // Run PyCloudStack automated tests
                     dir(WORKDIR) {
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                            sh "sudo ./$tdx_linux_stack_script --pycloudstack_automatedtests"
+                            sh "sudo -E ./$tdx_linux_stack_script --pycloudstack_automatedtests"
                         }
                     }
                 }
