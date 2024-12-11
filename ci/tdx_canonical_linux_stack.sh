@@ -50,9 +50,6 @@ verify_distro() {
 
 # Function to source necessary configuration and script files
 source_configs() {
-    if [[ -z "$JENKINS_URL" ]]; then
-        source "$CUR_DIR/utils/ubuntu/tdx-config"
-    fi
     source "$CUR_DIR/utils/ubuntu/run_smoke_test.sh"
     source "$CUR_DIR/utils/ubuntu/verify_attestation_tdx_host.sh"
     source "$CUR_DIR/utils/ubuntu/run_automated_tests.sh"

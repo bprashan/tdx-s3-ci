@@ -15,8 +15,8 @@ source "$CUR_DIR"/tdx-config
 
 # Function to set up proxy inside the guest environment
 setup_proxy_inside_guest(){
+    echo "Updating the proxy details on td guest..."
     if ! [[ -z "$http_proxy" || -z "$https_proxy" ]]; then
-        echo "Updating the proxy details on TD guest..."
         echo -e "Acquire::http::proxy \"$http_proxy\";\nAcquire::https::proxy \"$https_proxy\";" > /etc/apt/apt.conf.d/tdx_proxy
         export http_proxy="$http_proxy"
         export https_proxy="$https_proxy"
