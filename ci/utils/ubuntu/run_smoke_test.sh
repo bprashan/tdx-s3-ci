@@ -67,7 +67,7 @@ createtd() {
 # Function to verify TD Guest configuration
 verifytd() {
     echo "with port number: $1"
-    home_dir=$(grep "$USER" /etc/passwd | cut -d ":" -f 6)
+    home_dir=$(grep -w "$USER" /etc/passwd | cut -d ":" -f 6)
     
     # Remove existing SSH key for localhost
     if [ -f "$home_dir/.ssh/known_hosts" ]; then

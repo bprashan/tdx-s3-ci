@@ -13,6 +13,9 @@ check_attestation_support() {
 
 # Function to configure the PCCS service
 configure_pccs_service() {
+    if [[ -z "$JENKINS_URL" ]]; then
+        source "$CUR_DIR/utils/ubuntu/tdx-config"
+    fi
     echo -e "\nConfiguring PCCS service ..."
     if [[ -z "$ApiKey" || -z "$UserPassword" || -z "$AdminPassword" || -z "$trustauthority_api_key" ]]; then
         echo "ERROR: Config values are not initialized"
