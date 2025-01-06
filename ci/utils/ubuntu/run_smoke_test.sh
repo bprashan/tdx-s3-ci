@@ -43,17 +43,32 @@ verifytdx() {
 
 # Function to create TD image
 createtd() {
+    IMAGE_TYPE=$1
+    echo "Image type is $IMAGE_TYPE"
     echo "$GUEST_IMG_DIR"
     cd "$GUEST_IMG_DIR"
-    
+    if [[ "$BRANCH_NAME" == "noble-24.04" || "$BRANCH_NAME" == "main" ]]; then
+        image_version=24.04
+    else
+        image_version=24.10
+    fi
     # Check if TD image already exists
     if [ -e td_image_created ]; then
         echo "TD image already present"
     else
-        if [[ "$BRANCH_NAME" == "noble-24.04" ]]; then
-            ./create-td-image.sh -v 24.04
+        if [ "$IMAGE_TYPE" == "custom" ]; then
+            echo "Inside Custom test"
+            ./create-td-image.sh -v "$image_version" -o tdx-guest.qcow2 -u tdx_test -p intel123 -n test-guest | tee create_td_image.log
+            QCOW2_IMG="$GUEST_IMG_DIR/tdx-guest.qcow2"
+            # Check if custom TDX image was created
+            if grep -viq "tdx-guest.qcow2" create_td_image.log; then
+                echo "Verified the image name"
+            else
+                echo "Image name does not match custom name, exiting now."
+                exit 1
+            fi
         else
-            ./create-td-image.sh
+            ./create-td-image.sh -v "$image_version"
         fi
         virt-get-kernel -a "$QCOW2_IMG"
         touch td_image_created
@@ -66,7 +81,7 @@ createtd() {
 
 # Function to verify TD Guest configuration
 verifytd() {
-    echo "with port number: $1"
+    echo "with port number: $2"
     home_dir=$(grep "$USER" /etc/passwd | cut -d ":" -f 6)
     
     # Remove existing SSH key for localhost
@@ -74,12 +89,48 @@ verifytd() {
         ssh-keygen -f "$home_dir/.ssh/known_hosts" -R "[localhost]:$TD_GUEST_PORT"
     fi
     
-    out=$(sshpass -p "$TD_GUEST_PASSWORD" ssh -o StrictHostKeyChecking=no -p "$1" root@localhost 'dmesg | grep -i tdx' 2>&1)
+    IMAGE_TYPE=$4
+    if [ "$IMAGE_TYPE" == "custom" ]; then
+        echo "This is custom image hence setting the guest user and password"
+        TD_GUEST_PASSWORD=intel123
+        TD_GUEST_USER=tdx_test
+    fi
+    out=$(sshpass -p "$TD_GUEST_PASSWORD" ssh -o StrictHostKeyChecking=no -p "$2" $TD_GUEST_USER@localhost 'sudo dmesg | grep -i tdx' 2>&1)
     echo "$out"
     if [[ "$out" =~ "${TD_GUEST_VERIFY_TEXT}" ]]; then
-        echo "td guest is configured"
+        echo "td guest is configured (checked using port number)"
     else
-        echo "td guest is not configured"
+        echo "td guest is not configured (checked using port number)"
+        exit 1
+    fi
+
+    RUN_TYPE=$1
+    if [ "$RUN_TYPE" == "virsh" ]; then
+        ip_addr=$(sshpass -p "$TD_GUEST_PASSWORD" ssh -o StrictHostKeyChecking=no $TD_GUEST_USER@"$3" 'sudo dmesg | grep -i tdx' 2>&1)
+        echo "$ip_addr"
+        if [[ "$ip_addr" =~ "${TD_GUEST_VERIFY_TEXT}" ]]; then
+            echo "td guest is configured (checked using ip address)"
+        else
+            echo "td guest is not configured (checked using ip address)"
+            exit 1
+        fi
+    fi
+
+    username=$(sshpass -p "$TD_GUEST_PASSWORD" ssh -o StrictHostKeyChecking=no -p "$2" $TD_GUEST_USER@localhost 'whoami' 2>&1)
+    echo "$username"
+    if [[ "$username" == "${TD_GUEST_USER}" ]]; then
+        echo "Username matches the custom user set when creating TD image"
+    else
+        echo "Username doesn't match the custom user set when creating TD image"
+        exit 1
+    fi
+
+    verify_tdxguest=$(sshpass -p "$TD_GUEST_PASSWORD" ssh -o StrictHostKeyChecking=no -p "$2" $TD_GUEST_USER@localhost 'sudo mkdir -p /sys/kernel/config/tsm/report/testreport0 && cat /sys/kernel/config/tsm/report/testreport0/provider' 2>&1)
+    echo "$verify_tdxguest"
+    if [[ "$verify_tdxguest" == "tdx_guest" ]]; then
+        echo "Verified quote generation provider"
+    else
+        echo "Could not verify quote generation provider"
         exit 1
     fi
 }
@@ -114,7 +165,7 @@ runtdqemu() {
     echo "verifying TD guest on QEMU"
     #port_num=$(echo "$var" | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
     port_num=10022
-    verifytd "$port_num"
+    verifytd "qemu" "$port_num"
     QEMU_PID=$(echo "$var" | awk -F ', PID:' '{print $2}' | cut -d ' ' -f 2 | sed 's/,/ /g')
 }
 
@@ -126,6 +177,7 @@ cleantdqemu() {
 
 # Function to run TD guest with Libvirt
 runtdlibvirt() {
+    IMAGE_TYPE=$1
     echo "creating TD guest with libvirt"
     
     # Update libvirt configuration
@@ -137,7 +189,12 @@ runtdlibvirt() {
     systemctl restart libvirtd
     cd "$GUEST_TOOLS_DIR"
     cleanup
-    var=$(./${TD_VIRSH_BOOT_CMD})
+    if [ "$IMAGE_TYPE" == "custom" ]; then
+        echo "Starting custom TD image"
+        var=$(./${TD_VIRSH_BOOT_CMD} -i ${QCOW2_IMG})
+    else
+        var=$(./${TD_VIRSH_BOOT_CMD})
+    fi
     ret=$?
     echo "$var"
     if [ $ret -ne 0 ]; then
@@ -150,7 +207,8 @@ runtdlibvirt() {
         port_num=$(echo "$var" | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
     else
         port_num=$(echo $(./tdvirsh list --all) | awk -F 'hostfwd:' '{print $2}' | cut -d ',' -f 1)
+        ip_addr=$(echo $(./tdvirsh list --all) | awk -F 'ip:' '{print $2}' | cut -d ',' -f 1)
     fi
-    verifytd "$port_num"
+    verifytd "virsh" "$port_num" "$ip_addr" "$IMAGE_TYPE"
     cleanup
 }
