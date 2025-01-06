@@ -171,5 +171,24 @@ pipeline {
                 }
             }
         }
+
+        stage('Run Smoke Custom Test') {
+            agent { label TDX_NODE }
+            steps {
+                script {
+                    // Run smoke tests on the TDX host
+                    dir(WORKDIR) {
+                        withCredentials([
+                            string(credentialsId: 'ApiKey', variable: 'ApiKey'),
+                            string(credentialsId: 'UserPassword', variable: 'UserPassword'),
+                            string(credentialsId: 'AdminPassword', variable: 'AdminPassword'),
+                            string(credentialsId: 'trustauthority_api_key', variable: 'trustauthority_api_key')
+                        ]) {
+                            sh("sudo -E ./$tdx_linux_stack_script --smoke_custom")
+                        }
+                    }
+                }
+            }
+        }
     }
 }

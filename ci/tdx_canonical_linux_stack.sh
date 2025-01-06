@@ -23,6 +23,7 @@ BRANCH_NAME=${BRANCH_NAME:-'noble-24.04'}
 TD_VIRSH_BOOT_CMD="tdvirsh new"
 TD_VIRSH_DELETE_CMD="tdvirsh delete all"
 DISTRO_VER=$(. /etc/os-release; echo $VERSION_ID)
+TD_GUEST_USER=root
 TD_GUEST_PASSWORD=123456
 TD_GUEST_PORT=10022
 PCCS_DEFAULT_JSON="default.json"
@@ -31,7 +32,7 @@ MPA_SERVICE_CHECK="mpa_registration_tool.service; enabled; preset: enabled"
 TRUSTAUTHORITY_API_FILE="config.json"
 VERIFY_ATTESTATION_SCRIPT="verify_attestation_td_guest.sh"
 TDX_TOOLS_DIR="$CUR_DIR/tdx-tools"
-
+CUSTOM_IMAGE=custom
 # Function to log messages with timestamps
 log() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
@@ -64,12 +65,13 @@ execute_task() {
         case "$1" in
             --setuptdx ) log "setuptdx got selected"; setuptdx; shift ;;
             --verifytdx ) log "verifytdx got selected"; verifytdx; shift ;;
-            --createtd ) log "createtd got selected"; createtd; shift ;;
+            --createtd ) log "createtd got selected"; createtd default; shift ;;
             --runtdqemu ) log "runtdqemu got selected"; runtdqemu; cleantdqemu; shift ;;
-            --runtdlibvirt ) log "runtdlibvirt got selected"; runtdlibvirt; shift ;;
-            --smoke ) log "Verify entire TDX and TD guest configuration"; createtd; runtdqemu; verify_attestation; cleantdqemu; runtdlibvirt; shift ;;
-            --pycloudstack_automatedtests ) log "Pycloudstack automated tests got selected"; createtd; setup_pycloudstack; run_pycloudstack $2; shift ;;
-            --canonical_automatedtests ) log "Canonical automated tests got selected"; createtd; setup_canonical_suite; run_canonical_suite; shift ;;
+            --runtdlibvirt ) log "runtdlibvirt got selected"; runtdlibvirt default; shift ;;
+            --smoke ) log "Verify entire TDX and TD guest configuration"; createtd default; runtdqemu; verify_attestation; cleantdqemu; runtdlibvirt default; shift ;;
+            --smoke_custom ) log "Verify entire TDX and TD guest configuration"; setuptdx; createtd custom; runtdlibvirt custom; shift ;;
+	    --pycloudstack_automatedtests ) log "Pycloudstack automated tests got selected"; createtd default; setup_pycloudstack; run_pycloudstack $2; shift ;;
+            --canonical_automatedtests ) log "Canonical automated tests got selected"; createtd default; setup_canonical_suite; run_canonical_suite; shift ;;
             -- ) shift; break ;;
             * ) break ;;
         esac
