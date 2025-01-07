@@ -50,11 +50,7 @@ createtd() {
     if [ -e td_image_created ]; then
         echo "TD image already present"
     else
-        if [[ "$BRANCH_NAME" == "noble-24.04" ]]; then
-            ./create-td-image.sh -v 24.04
-        else
-            ./create-td-image.sh
-        fi
+        ./create-td-image.sh -v 24.04
         virt-get-kernel -a "$QCOW2_IMG"
         touch td_image_created
     fi
