@@ -47,11 +47,7 @@ createtd() {
     echo "Image type is $IMAGE_TYPE"
     echo "$GUEST_IMG_DIR"
     cd "$GUEST_IMG_DIR"
-    if [[ "$BRANCH_NAME" == "noble-24.04" || "$BRANCH_NAME" == "main" ]]; then
-        image_version=24.04
-    else
-        image_version=24.10
-    fi
+    image_version=24.04
     # Check if TD image already exists
     if [ -e td_image_created ]; then
         echo "TD image already present"
@@ -203,12 +199,9 @@ runtdlibvirt() {
     sleep 20
     echo "verifying TD guest on libvirt"
     
-    if [[ $DISTRO_VER == "23.10" ]]; then
-        port_num=$(echo "$var" | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
-    else
-        port_num=$(echo $(./tdvirsh list --all) | awk -F 'hostfwd:' '{print $2}' | cut -d ',' -f 1)
-        ip_addr=$(echo $(./tdvirsh list --all) | awk -F 'ip:' '{print $2}' | cut -d ',' -f 1)
-    fi
+    port_num=$(echo $(./tdvirsh list --all) | awk -F 'hostfwd:' '{print $2}' | cut -d ',' -f 1)
+    ip_addr=$(echo $(./tdvirsh list --all) | awk -F 'ip:' '{print $2}' | cut -d ',' -f 1)
+
     verifytd "virsh" "$port_num" "$ip_addr" "$IMAGE_TYPE"
     cleanup
 }

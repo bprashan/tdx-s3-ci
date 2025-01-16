@@ -19,7 +19,7 @@ TDT_HOST_VERIFY_TEXT="tdx: module initialized"
 TD_GUEST_VERIFY_TEXT="tdx: Guest detected"
 LIBVIRT_CONF=/etc/libvirt/qemu.conf
 RESTART_CHECK_STRING='0 upgraded, 0 newly installed, 0 to remove'
-BRANCH_NAME=${BRANCH_NAME:-'noble-24.04'}
+BRANCH_NAME=${BRANCH_NAME:-'main'}
 TD_VIRSH_BOOT_CMD="tdvirsh new"
 TD_VIRSH_DELETE_CMD="tdvirsh delete all"
 DISTRO_VER=$(. /etc/os-release; echo $VERSION_ID)
@@ -36,17 +36,6 @@ CUSTOM_IMAGE=custom
 # Function to log messages with timestamps
 log() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
-}
-
-# Function to verify the distribution version and adjust variables accordingly
-verify_distro() {
-    log "Verifying TDX on Ubuntu $DISTRO_VER"
-    if [[ $DISTRO_VER == "23.10" ]]; then
-        QCOW2_IMG="$GUEST_IMG_DIR/tdx-guest-ubuntu-23.10.qcow2"
-        BRANCH_NAME=mantic-23.10
-        TD_VIRSH_BOOT_CMD=td_virsh_tool.sh
-        TD_VIRSH_DELETE_CMD="$TD_VIRSH_BOOT_CMD -c all"
-    fi
 }
 
 # Function to source necessary configuration and script files
@@ -80,7 +69,6 @@ execute_task() {
 
 # Main function to orchestrate the script execution
 main() {
-    verify_distro
     source_configs
     execute_task "$@"
 }
