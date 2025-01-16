@@ -47,11 +47,7 @@ createtd() {
     echo "Image type is $IMAGE_TYPE"
     echo "$GUEST_IMG_DIR"
     cd "$GUEST_IMG_DIR"
-    if [[ "$BRANCH_NAME" == "noble-24.04" || "$BRANCH_NAME" == "main" ]]; then
-        image_version=24.04
-    else
-        image_version=24.10
-    fi
+    image_version=24.04
     # Check if TD image already exists
     if [ -e td_image_created ]; then
         echo "TD image already present"
