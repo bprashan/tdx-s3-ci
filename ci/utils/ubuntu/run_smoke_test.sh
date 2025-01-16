@@ -199,12 +199,9 @@ runtdlibvirt() {
     sleep 20
     echo "verifying TD guest on libvirt"
     
-    if [[ $DISTRO_VER == "23.10" ]]; then
-        port_num=$(echo "$var" | awk -F '-p' '{print $2}' | cut -d ' ' -f 2)
-    else
-        port_num=$(echo $(./tdvirsh list --all) | awk -F 'hostfwd:' '{print $2}' | cut -d ',' -f 1)
-        ip_addr=$(echo $(./tdvirsh list --all) | awk -F 'ip:' '{print $2}' | cut -d ',' -f 1)
-    fi
+    port_num=$(echo $(./tdvirsh list --all) | awk -F 'hostfwd:' '{print $2}' | cut -d ',' -f 1)
+    ip_addr=$(echo $(./tdvirsh list --all) | awk -F 'ip:' '{print $2}' | cut -d ',' -f 1)
+
     verifytd "virsh" "$port_num" "$ip_addr" "$IMAGE_TYPE"
     cleanup
 }
