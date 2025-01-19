@@ -53,8 +53,8 @@ setup_canonical_suite() {
 }
 
 run_canonical_suite() {
-    cd $TDX_DIR/tests/tests
+    cd $TDX_DIR/tests
     export TDXTEST_GUEST_IMG=$QCOW2_IMG
     # Run Canonical suite tests excluding tdreport and perf_benchmark
-    tox -e test_specify -- "not tdreport and not perf_benchmark"
+    ./tdtest --junitxml=test_guest_report.xml -k 'not tdreport and not perf_benchmark'
 }
