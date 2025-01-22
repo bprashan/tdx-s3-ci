@@ -90,7 +90,7 @@ verify_attestation_guest() {
     output=0
 
     sed -i 's/"trustauthority_api_key".*/"trustauthority_api_key":'\"$trustauthority_api_key\"'/' $TRUSTAUTHORITY_API_FILE
-    sshpass -p "$TD_GUEST_PASSWORD" rsync -avz --exclude={'*.img','*.qcow2'} -e "ssh -p $TD_GUEST_PORT" "$VERIFY_ATTESTATION_SCRIPT" "$TRUSTAUTHORITY_API_FILE" tdx-config root@localhost:/tmp/ 2>&1 || output=1
+    sshpass -p "$TD_GUEST_PASSWORD" rsync -avz --exclude={'*.img','*.qcow2'} -e "ssh -p $TD_GUEST_PORT" "$VERIFY_ATTESTATION_SCRIPT" "$TRUSTAUTHORITY_API_FILE" root@localhost:/tmp/ 2>&1 || output=1
     if [ $output -ne 0 ]; then
         echo "ERROR: tdx canonical files are not copied to the TD guest"
         exit 1

@@ -10,19 +10,6 @@ TD_REPORT_TEXT="Wrote TD Report to report.dat"
 # Path to the Intel Tiber Trust Service examples
 TRUST_SERVICE_PATH=/usr/share/doc/libtdx-attest-dev/examples/
 
-# Source the TDX configuration
-source "$CUR_DIR"/tdx-config
-
-# Function to set up proxy inside the guest environment
-setup_proxy_inside_guest(){
-    echo "Updating the proxy details on td guest..."
-    if ! [[ -z "$http_proxy" || -z "$https_proxy" ]]; then
-        echo -e "Acquire::http::proxy \"$http_proxy\";\nAcquire::https::proxy \"$https_proxy\";" > /etc/apt/apt.conf.d/tdx_proxy
-        export http_proxy="$http_proxy"
-        export https_proxy="$https_proxy"
-    fi
-}
-
 # Function to verify if Intel Tiber Trust Services are running
 verify_intel_tiber_trust_service(){
     echo -e "\nChecking whether Intel Tiber Trust Services is running ..."
@@ -57,6 +44,5 @@ attest_intel_tiber_trust_service(){
 }
 
 # Execute the functions
-setup_proxy_inside_guest
 verify_intel_tiber_trust_service
 attest_intel_tiber_trust_service
