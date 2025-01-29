@@ -72,5 +72,5 @@ run_canonical_suite() {
     # workaround for tdtest binary bug
     sed -i '/^tox --/s/\"//g' tdtest
     # Run Canonical suite tests excluding tdreport and perf_benchmark
-    ./tdtest --junitxml=test_guest_report.xml -k 'not tdreport and not perf_benchmark'
+    ./tdtest --junitxml=test_guest_report.xml --ignore=perf/ --ignore=report/
 }
