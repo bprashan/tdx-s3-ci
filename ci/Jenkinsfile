@@ -55,6 +55,14 @@ pipeline {
                     sh "sudo rm -rf *"
                     cleanWs()
                     checkout scm
+                    // LTR cloud machine requires proxy settings
+                    if (TDX_NODE.contains("LTR")){
+                        def configFile = 'ci/utils/ubuntu/tdx-config'
+                        sh """
+                            sed -i 's|^http_proxy=.*|http_proxy=http://proxy-dmz.intel.com:911|' ${configFile}
+                            sed -i 's|^https_proxy=.*|https_proxy=http://proxy-dmz.intel.com:912|' ${configFile}
+                        """
+                    }
                     def distro = sh(script: ". /etc/os-release; echo \$NAME", returnStdout: true).trim()
                     echo "System distro: ${distro}"
                     dir('ci') {
