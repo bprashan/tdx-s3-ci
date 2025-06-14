@@ -2,7 +2,7 @@
 
 CUR_DIR=$(pwd)
 TDX_DIR="$CUR_DIR"/tdx_setup
-BRANCH_NAME=${BRANCH_NAME:-2.0}
+BRANCH_NAME=${BRANCH_NAME:-3.3}
 GUEST_TOOLS_DIR=$TDX_DIR/guest-tools/
 GUEST_IMG_DIR="$GUEST_TOOLS_DIR"/image
 GUEST_IMG="tdx-guest-ubuntu-24.04-generic.qcow2"

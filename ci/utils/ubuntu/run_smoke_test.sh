@@ -83,11 +83,11 @@ createtd() {
     log "$VMLINUZ"
     cd "$TDX_DIR"
     # fetch the http_proxy and https_proxy from the tdx-config file
-    http_proxy=$(get_value 'http_proxy')
-    https_proxy=$(get_value 'https_proxy')
-    LIBGUESTFS_DEBUG=1 LIBGUESTFS_TRACE=1 virt-customize -a $QCOW2_IMG --run-command 'echo "Acquire::http::proxy \"$http_proxy\";\nAcquire::https::proxy \"$https_proxy\";" > /etc/apt/apt.conf.d/tdx_proxy' \
-        --run-command 'echo "http_proxy=$http_proxy" >> /etc/environment' \
-        --run-command 'echo "https_proxy=$https_proxy" >> /etc/environment'
+    # http_proxy=$(get_value 'http_proxy')
+    # https_proxy=$(get_value 'https_proxy')
+    # LIBGUESTFS_DEBUG=1 LIBGUESTFS_TRACE=1 virt-customize -a $QCOW2_IMG --run-command 'echo "Acquire::http::proxy \"$http_proxy\";\nAcquire::https::proxy \"$https_proxy\";" > /etc/apt/apt.conf.d/tdx_proxy' \
+    #     --run-command 'echo "http_proxy=$http_proxy" >> /etc/environment' \
+    #     --run-command 'echo "https_proxy=$https_proxy" >> /etc/environment'
 }
 
 # Function to verify TD Guest configuration
@@ -169,7 +169,7 @@ runtdqemu() {
     log "creating TD guest with QEMU"
     cd "$GUEST_TOOLS_DIR"
     cleanup
-    var=$(./run_td.sh)
+    var=$(./run_td)
     ret=$?
     echo "$var"
     if [ $ret -ne 0 ]; then

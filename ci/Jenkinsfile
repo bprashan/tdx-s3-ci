@@ -34,11 +34,11 @@ pipeline {
     }
 
     parameters {
-        string(defaultValue: '3.1', name: 'BRANCH_NAME', description: 'TDX repo. It supports branch name or tag or commitid')
+        string(defaultValue: '3.3', name: 'BRANCH_NAME', description: 'TDX repo. It supports branch name or tag or commitid')
     }
 
     environment {
-        TDX_NODE = 'tdx'
+        TDX_NODE = 'sdp_10258'
         WORKDIR = ''
         TDX_LINUX_STACK_SCRIPT = 'tdx_canonical_linux_stack.sh'
         IS_RESTART_REQUIRED = false
