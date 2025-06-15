@@ -212,7 +212,7 @@ runtdlibvirt() {
     if [ $ret -ne 0 ]; then
         exit 1
     fi
-    sleep 20
+    sleep 30
     log "verifying TD guest on libvirt"
     
     port_num=$(echo $(./tdvirsh list --all) | awk -F 'hostfwd:' '{print $2}' | cut -d ',' -f 1)
