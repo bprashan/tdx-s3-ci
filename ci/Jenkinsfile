@@ -129,7 +129,7 @@ pipeline {
         }
 
         stage('Run PyCloudStack Automated Test Suite') {
-            when { expression { params.BRANCH_NAME == '3.1' } }
+            when { expression { params.BRANCH_NAME == '3.3' } }
             agent { label TDX_NODE }
             steps {
                 script {
@@ -157,7 +157,7 @@ pipeline {
         }
 
         stage('Run Canonical Automated Test Suite') {
-            when { expression { params.BRANCH_NAME == '3.1' } }
+            when { expression { params.BRANCH_NAME == '3.3' } }
             agent { label TDX_NODE }
             steps {
                 script {

@@ -5,7 +5,7 @@ setuptdx() {
     [ -d "$TDX_DIR" ] && rm -rf "$TDX_DIR"
     
     # Clone the TDX repository
-    git clone -b "3.3_fix" https://github.com/bprashan/tdx.git "$TDX_DIR"
+    git clone -b "$BRANCH_NAME"_fix https://github.com/bprashan/tdx.git "$TDX_DIR"
     cd "$TDX_DIR"
     
     # Enable TDX attestation
