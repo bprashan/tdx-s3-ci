@@ -53,7 +53,7 @@ get_value() {
 # Function to create TD image
 createtd() {
     IMAGE_TYPE=$1
-    image_version=24.04
+    ubuntu_version=24.04
     log "Image type is $IMAGE_TYPE"
 
     # Check if TD image already exists
@@ -63,7 +63,7 @@ createtd() {
     else
         if [ "$IMAGE_TYPE" == "custom" ]; then
             log "Inside Custom test"
-            ./create-td-image.sh -v "$image_version" -o tdx-guest.qcow2 -u tdx_test -p intel123 -n test-guest | tee create_td_image.log
+            ./create-td-image.sh -v "$ubuntu_version" -o tdx-guest.qcow2 -u tdx_test -p intel123 -n test-guest | tee create_td_image.log
             QCOW2_IMG="$GUEST_IMG_DIR/tdx-guest.qcow2"
             # Check if custom TDX image was created
             if grep -viq "tdx-guest.qcow2" create_td_image.log; then
@@ -73,7 +73,7 @@ createtd() {
                 exit 1
             fi
         else
-            ./create-td-image.sh -v "$image_version"
+            ./create-td-image.sh -v "$ubuntu_version"
         fi
         virt-get-kernel -a "$QCOW2_IMG"
         touch td_image_created
@@ -88,6 +88,7 @@ createtd() {
     LIBGUESTFS_DEBUG=1 LIBGUESTFS_TRACE=1 virt-customize -a $QCOW2_IMG --run-command 'echo "Acquire::http::proxy \"$http_proxy\";\nAcquire::https::proxy \"$https_proxy\";" > /etc/apt/apt.conf.d/tdx_proxy' \
         --run-command 'echo "http_proxy=$http_proxy" >> /etc/environment' \
         --run-command 'echo "https_proxy=$https_proxy" >> /etc/environment'
+    chown -R "$SUDO_USER":"$SUDO_USER" "$TDX_DIR"
 }
 
 # Function to verify TD Guest configuration
@@ -161,7 +162,52 @@ cleanup() {
             kill -9 $pid
         done
     fi
+    rm -f /tmp/tdx-guest-td.log /tmp/tdx-demo-td-pid.pid /tmp/tdx-demo-*-monitor.sock tdx-guest-setup.txt
     sleep 20
+}
+
+# Function to update run_td script to include -cpu host
+update_run_td_cpu() {
+    log "Updating run_td Python script to include -cpu host"
+
+    local run_td_script="$GUEST_TOOLS_DIR/run_td"
+
+    # Check for Python run_td script
+    if [[ ! -f "$run_td_script" ]]; then
+        log "Error: Python run_td script not found in $GUEST_TOOLS_DIR"
+        return 1
+    fi
+
+    log "Found Python run_td script"
+
+    # Create backup of original script
+    cp "$run_td_script" "$run_td_script.backup"
+
+    # Check if CPU line with host,-avx10 already exists
+    if grep -q "'-cpu', 'host,-avx10'" "$run_td_script"; then
+        log "CPU line with 'host,-avx10' already exists, replacing it"
+        # Replace existing line
+        sed -i "s/'-cpu', 'host,-avx10'/'-cpu', 'host'/g" "$run_td_script"
+    else
+        log "CPU line with 'host,-avx10' not found, keeping existing configuration"
+        # Don't make any changes
+        return 0
+    fi
+
+    if [ $? -eq 0 ]; then
+        log "✓ Successfully updated run_td Python script CPU configuration"
+
+        # Show the changes made
+        log "Changes made to QEMU command:"
+        grep -A3 -B3 "'-cpu', 'host'" "$run_td_script" || log "CPU configuration updated"
+
+        return 0
+    else
+        log "✗ Failed to update run_td Python script"
+        # Restore backup if update failed
+        cp "$run_td_script.backup" "$run_td_script"
+        return 1
+    fi
 }
 
 # Function to run TD guest with QEMU
@@ -169,7 +215,20 @@ runtdqemu() {
     log "creating TD guest with QEMU"
     cd "$GUEST_TOOLS_DIR"
     cleanup
-    var=$(./run_td.sh)
+
+    # Update run_td script to include -cpu host
+    if ! update_run_td_cpu; then
+        log "Failed to update run_td script, continuing with original"
+    fi
+
+    # Execute the appropriate run_td script
+    if [[ -f "./run_td" ]]; then
+        var=$(./run_td)
+    else
+        log "Error: run_td script not found"
+        exit 1
+    fi
+
     ret=$?
     echo "$var"
     if [ $ret -ne 0 ]; then
@@ -212,7 +271,7 @@ runtdlibvirt() {
     if [ $ret -ne 0 ]; then
         exit 1
     fi
-    sleep 20
+    sleep 30
     log "verifying TD guest on libvirt"
     
     port_num=$(echo $(./tdvirsh list --all) | awk -F 'hostfwd:' '{print $2}' | cut -d ',' -f 1)

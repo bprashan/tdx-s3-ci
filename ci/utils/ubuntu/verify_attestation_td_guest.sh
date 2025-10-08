@@ -7,6 +7,7 @@ CUR_DIR=$(pwd)
 TD_QUOTE_TEXT="Successfully get the TD Quote"
 TD_REPORT_TEXT="Wrote TD Report to report.dat"
 
+
 # Path to the Intel Tiber Trust Service examples
 TRUST_SERVICE_PATH=/usr/share/doc/libtdx-attest-dev/examples/
 

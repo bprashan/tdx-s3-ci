@@ -26,6 +26,9 @@ def restartNode(node_label) {
     return false
 }
 
+// Define default branch name as a global variable
+def DEFAULT_TDX_BRANCH = '3.3'
+
 pipeline {
     agent none
 
@@ -34,11 +37,11 @@ pipeline {
     }
 
     parameters {
-        string(defaultValue: '3.1', name: 'BRANCH_NAME', description: 'TDX repo. It supports branch name or tag or commitid')
+        string(defaultValue: DEFAULT_TDX_BRANCH, name: 'BRANCH_NAME', description: 'TDX repo. It supports branch name or tag or commitid')
     }
 
     environment {
-        TDX_NODE = 'tdx'
+        TDX_NODE = 'tdx && canonical'
         WORKDIR = ''
         TDX_LINUX_STACK_SCRIPT = 'tdx_canonical_linux_stack.sh'
         IS_RESTART_REQUIRED = false
@@ -128,8 +131,20 @@ pipeline {
             }
         }
 
+        stage('Verify Direct Boot') {
+            agent { label TDX_NODE }
+            steps {
+                script {
+                    // Run smoke tests on the TDX host
+                    dir(WORKDIR) {
+                        sh("./$tdx_linux_stack_script --rundirectboot")
+                    }
+                }
+            }
+        }
+
         stage('Run PyCloudStack Automated Test Suite') {
-            when { expression { params.BRANCH_NAME == '3.1' } }
+            when { expression { params.BRANCH_NAME == DEFAULT_TDX_BRANCH } }
             agent { label TDX_NODE }
             steps {
                 script {
@@ -157,7 +172,7 @@ pipeline {
         }
 
         stage('Run Canonical Automated Test Suite') {
-            when { expression { params.BRANCH_NAME == '3.1' } }
+            when { expression { params.BRANCH_NAME == DEFAULT_TDX_BRANCH } }
             agent { label TDX_NODE }
             steps {
                 script {
